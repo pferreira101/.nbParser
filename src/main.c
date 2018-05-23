@@ -4,9 +4,91 @@
 #include <stdlib.h> //malloc
 #include <string.h> //strings
 #include <sys/stat.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <ctype.h>
 
-/* PROBLEMA QUE ME SURGIU: RELER OUTRA VEZ APÓS A EXECUÇÃO DO PRIMEIRO COMANDO?? */
 
+// Como cada processo tem dois pipes, assim sabemos qual o seu indice
+#define PIPE_READ(x) = (x*2)
+#define PIPE_WRITE(x) = (x*2 + 1)
+
+
+// Estrutura para o parser do ficheiro
+struct cmd{
+	char* cmd;
+	int* needs_me;
+	int my_input_id;
+};
+
+
+// Variável global com os pids dos filhos
+int* son_pids;
+
+
+// Ctrl + C
+void interrupt(int x){
+	printf("\nProcessamento cancelado pelo utilizador.\n");
+	exit(-1);
+}
+
+
+// Parser para a estrutura
+
+int getDependentNumber(char* str){
+	char* aux = malloc(sizeof(str));
+
+	if(str[2] == '|') return 1; // nada genérico assim
+	
+	int i = 2;
+	for(i = i; !isalpha(str[i]) && str[i] != '|'; i++){
+		aux[i-2] = str[i];
+	}
+	aux[i] = '\n';
+
+	int r = atoi(aux);
+	if(r == 0) r = -1; // para se depender do primeiro comando dar para distinguir
+
+	return r;
+}
+
+char* getCmd(char* cmd){
+	int i;
+
+	for(i = 0; !isalpha(cmd[i]); i++);
+
+	return cmd+i;
+}
+
+void loadCmds(struct cmd *cmds, char* file){
+	int n_cmds = 0;
+
+	for(int i = 0; file[i] != '\0'; i++){
+		if(file[i] == '$'){
+			char* cmd = malloc(sizeof(file));
+			
+			for(int j = i; file[i] != '\n'; i++, j++){
+				if(file[i] == '|') i++;
+				cmd[i] = file[i];
+				/* Debugging */ printf("%c\n", cmd[j]);
+
+			}
+
+			cmd[i] = '\n';
+			
+			/* Debugging */ printf("%s\n", cmd); // porque é que já não aparece nada aqui??
+
+			int x = getDependentNumber(cmd);
+
+			cmds[n_cmds].cmd = strdup(getCmd(cmd));
+			cmds[n_cmds].my_input_id = n_cmds + x;
+			//cmds[n_cmds - x] = addNeedsMe(n_cmds); // fazer addNeedsMe
+
+			n_cmds++; 
+		}
+	}
+}
 
 
 
@@ -56,13 +138,15 @@ int getNumOfCmds(char* file){
 	int n_read = read(pd2[0], buffer, 50);
 
 	if(n_read < 0){
-		printf("error\n");
+		printf("Erro\n");
 	}
 
 	sscanf(buffer, "%d", &numCmds);
 
 	return numCmds;
 }
+
+
 
 
 
@@ -75,7 +159,7 @@ char** transformCmdLine(char* cmdLine, int n_args){
 
   	token = strtok (cmdLine," ");
 
-  	while (token != NULL){
+  	while(token != NULL){
    		cmdArgs[i++] = strdup(token);
 
     	token = strtok (NULL, " ");
@@ -85,17 +169,17 @@ char** transformCmdLine(char* cmdLine, int n_args){
 }
  
 int main (int argc, char* argv[]){
-	char* supDelim = ">>>";
-	char* infDelim = "<<<";
+	signal(SIGINT, interrupt);
+		
+	char* supDelim = ">>>\n";
+	char* infDelim = "<<<\n";
 	int nFilho = 0;
 	char *path = argv[1];	
 	char *buffer;
+	
 	int n_cmds = getNumOfCmds(argv[1]);
-
-	// array de pipes, tantos como comandos 
-	int pipeArray[n_cmds][2];
-	// guardar resultados para escrever no doc
-	char outputs[n_cmds][2048];
+	
+	struct cmd *cmds = malloc(sizeof(struct cmd)*n_cmds);
 
 	int file = open(path, O_RDWR); //abrir ficheiro
 	int fileSize;
@@ -104,16 +188,37 @@ int main (int argc, char* argv[]){
 		printf("Não existe o ficheiro\n");
 		return -1;
 	} 
-	
+
+	//sleep(10); // apenas para testar o sinal
+
+
 	struct stat st; // ver tamanho do ficheiro
 	if (stat(path, &st) != -1) {
 		fileSize = st.st_size; //em bytes
-		printf("ficheiro: %d bytes\n", fileSize);
+		//printf("ficheiro: %d bytes\n", fileSize);
 		buffer = malloc(fileSize);
 	}
 
 	while(read(file, buffer, fileSize)>0) // Carregar ficheiro para string Buffer
+	
 
+	// Parser do ficheiro para a estrutura
+	loadCmds(cmds, buffer);
+
+
+	// Cria 2*n_cmds pipes
+	int pipe_array[n_cmds*2][2];
+	for(int i=0; i<n_cmds; i++) pipe(pipe_array[i]);
+
+	/* ---------------------------------------------- Não mudei a partir daqui ------------------------------------------------------*/
+
+	// array de pipes, tantos como comandos 
+	int pipeArray[n_cmds][2];
+	// guardar resultados para escrever no doc
+	char outputs[n_cmds][2048];
+
+
+	
 	for (int i=0; i<fileSize; i++) {
 		if (buffer[i] == '$') { //carregar comando simples para a string cmd
 			char cmdLine[2048]; //max unix line: getconf LINE_MAX
@@ -156,7 +261,6 @@ int main (int argc, char* argv[]){
 	for(int i=0; i<nFilho; i++){
 		int n_read = read(pipeArray[i][0], outputs[i], 2048);
 		close(pipeArray[i][0]);
-		outputs[i][n_read] = '\0';
 		printf("%s\n", outputs[i]);
 	}
 	
