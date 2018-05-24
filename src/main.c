@@ -17,7 +17,9 @@
 
 // Estrutura para o parser do ficheiro
 struct cmd{
-	char* cmd;
+	int id; // será preciso ou basta o indice?
+	char* text;
+	char** cmd;
 	int* needs_me;
 	int my_input_id;
 };
@@ -31,6 +33,7 @@ int* son_pids;
 void interrupt(int x){
 	printf("\nProcessamento cancelado pelo utilizador.\n");
 	exit(-1);
+	//falta matar filhos
 }
 
 
@@ -55,38 +58,90 @@ int getDependentNumber(char* str){
 
 char* getCmd(char* cmd){
 	int i;
+	char* r = malloc(sizeof(cmd));
 
 	for(i = 0; !isalpha(cmd[i]); i++);
+	for(int j = 0, i = i; cmd[i] != '\n'; i++, j++){
+		r[j] = cmd[i];
+	}
 
-	return cmd+i;
+	return r;
 }
 
-void loadCmds(struct cmd *cmds, char* file){
-	int n_cmds = 0;
+char** transformCmdLine(char* cmd_line){
+	int n_args = 0;
 
+	for (int i = 0; cmd_line[i]!='\0'; i++) {					
+		if(cmd_line[i] == ' ') n_args++;
+	}
+
+	char** cmd_args = malloc(sizeof(char*) * (n_args+1));
+	cmd_args[n_args] = NULL; // terminar a o array a null para efeitos de exec
+
+	int i = 0;
+	char* token; 
+
+  	token = strtok (cmd_line," ");
+
+  	while(token != NULL){
+   		cmd_args[i++] = strdup(token);
+
+    	token = strtok (NULL, " ");
+  	}
+  	
+  	return cmd_args;
+}
+
+
+void loadCmds(struct cmd *cmds, char* file, int n_args){
+	int cmd_id = 0;
+
+	char* line = malloc(sizeof(file));
+
+	// Analisa o ficheiro todo
 	for(int i = 0; file[i] != '\0'; i++){
-		if(file[i] == '$'){
-			char* cmd = malloc(sizeof(file));
-			
-			for(int j = i; file[i] != '\n'; i++, j++){
-				if(file[i] == '|') i++;
-				cmd[i] = file[i];
-				/* Debugging */ printf("%c\n", cmd[j]);
+		// Analisa linha a linha - Sabemos que estamos a inicia uma linha nova no inicio do ciclo	
+		int j;
 
+		// É texto
+		if(isalpha(file[i])){ 
+			for(j = 0; file[i] != '\n'; i++, j++) line[j] = file[i];
+			
+			line[j] = '\0';
+			
+			cmds[cmd_id].text = strdup(line);
+
+			/* Debugging */ printf("Processou texto\n");
+		}
+
+		// É comando
+		else if(file[i] == '$'){ 
+			for(j = 0; file[i] != '\n'; i++, j++) {
+				line[j] = file[i];
+				/* Debugging */ printf("%c\n", line[j]);
 			}
 
-			cmd[i] = '\n';
-			
-			/* Debugging */ printf("%s\n", cmd); // porque é que já não aparece nada aqui??
+			line[j] = '\0';
 
-			int x = getDependentNumber(cmd);
+			char* cmd_line = getCmd(line);
+			int x = getDependentNumber(line);
 
-			cmds[n_cmds].cmd = strdup(getCmd(cmd));
-			cmds[n_cmds].my_input_id = n_cmds + x;
-			//cmds[n_cmds - x] = addNeedsMe(n_cmds); // fazer addNeedsMe
+			cmds[cmd_id].cmd = transformCmdLine(cmd_line);
+			cmds[cmd_id].my_input_id = cmd_id - x;
+			//cmds[cmd_id - x].needs_me = addNeedsMe(cmd_id);
 
-			n_cmds++; 
+			cmd_id++;
+			/* Debugging */ printf("%s\n", line); // Nao imprime
+			/* Debugging */ printf("Processou comando\n");
 		}
+
+		// É resultado de comando ">>>" ... "<<<" (ignora apenas)
+		else if(file[i] == '>'){ 
+			while(file[i] != '<' && file[i+1] != '\n') i++;
+			/* Debugging */ printf("Processou resultado\n");
+		}
+
+		/* Debugging */ printf("Processou uma linha\n");		
 	}
 }
 
@@ -147,30 +202,16 @@ int getNumOfCmds(char* file){
 }
 
 
-
-
-
-char** transformCmdLine(char* cmdLine, int n_args){
-	char** cmdArgs = malloc(sizeof(char*) * (n_args+1));
-	cmdArgs[n_args] = NULL; // terminar a o array a null para efeitos de exec
-
-	int i = 0;
-	char* token; 
-
-  	token = strtok (cmdLine," ");
-
-  	while(token != NULL){
-   		cmdArgs[i++] = strdup(token);
-
-    	token = strtok (NULL, " ");
-  	}
-  	return cmdArgs;
-
-}
  
 int main (int argc, char* argv[]){
 	signal(SIGINT, interrupt);
-		
+	
+	if(argc == 1){
+		printf("Especifique um ficheiro\n");
+		return -1;
+	
+	}
+
 	char* supDelim = ">>>\n";
 	char* infDelim = "<<<\n";
 	int nFilho = 0;
@@ -181,10 +222,12 @@ int main (int argc, char* argv[]){
 	
 	struct cmd *cmds = malloc(sizeof(struct cmd)*n_cmds);
 
+	
+
 	int file = open(path, O_RDWR); //abrir ficheiro
 	int fileSize;
 
-	if (file < 0) {
+	if(file < 0){
 		printf("Não existe o ficheiro\n");
 		return -1;
 	} 
@@ -203,7 +246,7 @@ int main (int argc, char* argv[]){
 	
 
 	// Parser do ficheiro para a estrutura
-	loadCmds(cmds, buffer);
+	loadCmds(cmds, buffer, n_cmds);
 
 
 	// Cria 2*n_cmds pipes
@@ -227,13 +270,9 @@ int main (int argc, char* argv[]){
 			if (buffer[i+1] == '|') i = i+3;
 			else i = i+2;
 
-			for (int lidos = 0; i<fileSize && buffer[i]!='\n'; i++, lidos++) {					
-				cmdLine[lidos] = buffer[i];
-				if(buffer[i] == ' ') 
-					count++;
-			}		
+	
 
-			char** cmdArgs = transformCmdLine(cmdLine, count);
+			char** cmdArgs = transformCmdLine(cmdLine);
 
 			pipe(pipeArray[nFilho]);
 
