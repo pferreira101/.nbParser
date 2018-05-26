@@ -1,6 +1,8 @@
 Este comando lista os ficheiros:
 $ ls
 Agora podemos ordenar estes ficheiros:
-$ pwd
+$| sort 
 E escolher o primeiro:
-$ ls -l
+$| head -1
+O Henrique vai chumbar a CP e a SO:
+$ pwd

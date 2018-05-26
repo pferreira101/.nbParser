@@ -21,9 +21,22 @@ struct cmd{
 	char* text;
 	char** cmd;
 	int* needs_me;
+	int needs_me_len;
 	int my_input_id;
 };
 
+void printCMD(struct cmd *Cmd, int x){
+	printf("COMMAND %d:\n", x);
+
+	printf("Texto: %s\n", Cmd[x].text);
+	printf("Preciso do: %d\n", Cmd[x].my_input_id);
+
+	printf("Precisa de mim: ");
+	for(int i = 0; i<Cmd[x].needs_me_len; i++) printf("%d, ", Cmd[x].needs_me[i]);
+	printf("\n*********************\n");
+
+	
+}
 
 // Variável global com os pids dos filhos
 int* son_pids;
@@ -37,41 +50,46 @@ void interrupt(int x){
 }
 
 
-// Parser para a estrutura
+
+// Auxiliares ao parser
 
 int getDependentNumber(char* str){
 	char* aux = malloc(sizeof(str));
+	int i;
 
-	if(str[2] == '|') return 1; // nada genérico assim
+	if(str[1] == '|') return 1; // obrigaga a que o texto seja escrito com a regra "$|" 
 	
-	int i = 2;
-	for(i = i; !isalpha(str[i]) && str[i] != '|'; i++){
-		aux[i-2] = str[i];
+	for(i = 1; !isalpha(str[i]) && str[i] != '|'; i++){
+		aux[i-1] = str[i];
 	}
 	aux[i] = '\n';
 
 	int r = atoi(aux);
-	if(r == 0) r = -1; // para se depender do primeiro comando dar para distinguir
-
+	if(r == 0) return -1; // para distinguir do primeiro comando
 	return r;
 }
 
+
 char* getCmd(char* cmd){
-	int i;
+	int i, j;
 	char* r = malloc(sizeof(cmd));
 
 	for(i = 0; !isalpha(cmd[i]); i++);
-	for(int j = 0, i = i; cmd[i] != '\n'; i++, j++){
+	for(j = 0, i = i; cmd[i] != '\n'; i++, j++){
 		r[j] = cmd[i];
 	}
 
+	r[j] = '\0';
+
 	return r;
 }
+
+
 
 char** transformCmdLine(char* cmd_line){
 	int n_args = 0;
 
-	for (int i = 0; cmd_line[i]!='\0'; i++) {					
+	for (int i = 0; cmd_line[i]!='\0'; i++){					
 		if(cmd_line[i] == ' ') n_args++;
 	}
 
@@ -93,6 +111,22 @@ char** transformCmdLine(char* cmd_line){
 }
 
 
+int* addNeedsMe(int* needs_me, int n, int x){
+	int* aux = malloc((n+1)*sizeof(int));
+
+	for(int i = 0; i < n; i++){
+		aux[i] = needs_me[i];
+	}
+
+	aux[n] = x;
+	
+	return aux;
+}
+
+
+
+// Parser para a estrutura
+
 void loadCmds(struct cmd *cmds, char* file, int n_args){
 	int cmd_id = 0;
 
@@ -111,6 +145,7 @@ void loadCmds(struct cmd *cmds, char* file, int n_args){
 			
 			cmds[cmd_id].text = strdup(line);
 
+			/* Debugging */ printf("Texto: %s\n", cmds[cmd_id].text);
 			/* Debugging */ printf("Processou texto\n");
 		}
 
@@ -118,20 +153,26 @@ void loadCmds(struct cmd *cmds, char* file, int n_args){
 		else if(file[i] == '$'){ 
 			for(j = 0; file[i] != '\n'; i++, j++) {
 				line[j] = file[i];
-				/* Debugging */ printf("%c\n", line[j]);
 			}
 
 			line[j] = '\0';
+			/* Debugging */ printf("Linha com comando: %s\n", line);
+
 
 			char* cmd_line = getCmd(line);
+			/* Debugging */ printf("Comando: %s\n", cmd_line);
+
 			int x = getDependentNumber(line);
+			/* Debugging */ printf("Depende do comando %d (%d comandos atrás)\n", cmd_id-x, x);
 
 			cmds[cmd_id].cmd = transformCmdLine(cmd_line);
-			cmds[cmd_id].my_input_id = cmd_id - x;
-			//cmds[cmd_id - x].needs_me = addNeedsMe(cmd_id);
-
+			if(x >= 0) cmds[cmd_id].my_input_id = cmd_id - x;
+			else cmds[cmd_id].my_input_id = -1;
+			if(x != -1){
+				cmds[cmd_id - x].needs_me = addNeedsMe(cmds[cmd_id - x].needs_me, cmds[cmd_id - x].needs_me_len, cmd_id);
+				cmds[cmd_id - x].needs_me_len++;
+			}
 			cmd_id++;
-			/* Debugging */ printf("%s\n", line); // Nao imprime
 			/* Debugging */ printf("Processou comando\n");
 		}
 
@@ -141,7 +182,7 @@ void loadCmds(struct cmd *cmds, char* file, int n_args){
 			/* Debugging */ printf("Processou resultado\n");
 		}
 
-		/* Debugging */ printf("Processou uma linha\n");		
+		/* Debugging */ printf("****************************Processou uma linha****************************\n\n");		
 	}
 }
 
@@ -248,6 +289,10 @@ int main (int argc, char* argv[]){
 	// Parser do ficheiro para a estrutura
 	loadCmds(cmds, buffer, n_cmds);
 
+	/* Debugging */
+	for(int i = 0; i<n_cmds; i++){
+		printCMD(cmds, i);
+	}
 
 	// Cria 2*n_cmds pipes
 	int pipe_array[n_cmds*2][2];
