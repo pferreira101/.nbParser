@@ -127,19 +127,19 @@ int* addNeedsMe(int* needs_me, int n, int x){
 
 // Parser para a estrutura
 
-void loadCmds(struct cmd *cmds, char* file, int n_args){
+void loadCmds(struct cmd *cmds, char* file){
 	int cmd_id = 0;
 
 	char* line = malloc(sizeof(file));
 
 	// Analisa o ficheiro todo
 	for(int i = 0; file[i] != '\0'; i++){
-		// Analisa linha a linha - Sabemos que estamos a inicia uma linha nova no inicio do ciclo	
+		// Analisa linha a linha - Sabemos que estamos a iniciar uma linha nova no inicio do ciclo	
 		int j;
 
 		// É texto
 		if(isalpha(file[i])){ 
-			for(j = 0; file[i] != '\n'; i++, j++) line[j] = file[i];
+			for(j = 0; file[i] != '\n' && file[i] != '\0'; i++, j++) line[j] = file[i];
 			
 			line[j] = '\0';
 			
@@ -151,7 +151,7 @@ void loadCmds(struct cmd *cmds, char* file, int n_args){
 
 		// É comando
 		else if(file[i] == '$'){ 
-			for(j = 0; file[i] != '\n'; i++, j++) {
+			for(j = 0; file[i] != '\n' && file[i] != '\0'; i++, j++) {
 				line[j] = file[i];
 			}
 
@@ -163,7 +163,7 @@ void loadCmds(struct cmd *cmds, char* file, int n_args){
 			/* Debugging */ printf("Comando: %s\n", cmd_line);
 
 			int x = getDependentNumber(line);
-			/* Debugging */ printf("Depende do comando %d (%d comandos atrás)\n", cmd_id-x, x);
+			/* Debugging */ //printf("Depende do comando %d (%d comandos atrás)\n", cmd_id-x, x);
 
 			cmds[cmd_id].cmd = transformCmdLine(cmd_line);
 			if(x >= 0) cmds[cmd_id].my_input_id = cmd_id - x;
@@ -178,7 +178,7 @@ void loadCmds(struct cmd *cmds, char* file, int n_args){
 
 		// É resultado de comando ">>>" ... "<<<" (ignora apenas)
 		else if(file[i] == '>'){ 
-			while(file[i] != '<' && file[i+1] != '\n') i++;
+			while(file[i-1] != '<' && file[i] != '\n' && file[i] != '\0') i++; // MUDAR - !(file[i-1] == '<' && file[i] == '\n') dá segf
 			/* Debugging */ printf("Processou resultado\n");
 		}
 
@@ -263,8 +263,6 @@ int main (int argc, char* argv[]){
 	
 	struct cmd *cmds = malloc(sizeof(struct cmd)*n_cmds);
 
-	
-
 	int file = open(path, O_RDWR); //abrir ficheiro
 	int fileSize;
 
@@ -275,31 +273,41 @@ int main (int argc, char* argv[]){
 
 	//sleep(10); // apenas para testar o sinal
 
-
-	struct stat st; // ver tamanho do ficheiro
+	// Ver tamanho do ficheiro
+	struct stat st; 
 	if (stat(path, &st) != -1) {
-		fileSize = st.st_size; //em bytes
+		fileSize = st.st_size; // em bytes
 		//printf("ficheiro: %d bytes\n", fileSize);
 		buffer = malloc(fileSize);
 	}
 
-	while(read(file, buffer, fileSize)>0) // Carregar ficheiro para string Buffer
+	// Carregar ficheiro para string Buffer
+	while(read(file, buffer, fileSize)>0); 
 	
 
 	// Parser do ficheiro para a estrutura
-	loadCmds(cmds, buffer, n_cmds);
+	loadCmds(cmds, buffer);
 
 	/* Debugging */
 	for(int i = 0; i<n_cmds; i++){
 		printCMD(cmds, i);
 	}
 
+
+	/* ----------------------------------------- Não sei se estes dois ciclos estão bem ------------------------- */
+	// Cria n_cmds ficheiros 
+	for(int i = 0; i < n_cmds; i++){
+		char n_output[10];
+		sprintf(n_output, "%d", i); 
+		int fid = open(n_output, O_CREAT | O_RDWR, 0666);
+	}
+
 	// Cria 2*n_cmds pipes
 	int pipe_array[n_cmds*2][2];
-	for(int i=0; i<n_cmds; i++) pipe(pipe_array[i]);
+	for(int i=0; i < n_cmds; i++) pipe(pipe_array[i]);
 
 	/* ---------------------------------------------- Não mudei a partir daqui ------------------------------------------------------*/
-
+/*
 	// array de pipes, tantos como comandos 
 	int pipeArray[n_cmds][2];
 	// guardar resultados para escrever no doc
@@ -347,7 +355,7 @@ int main (int argc, char* argv[]){
 		close(pipeArray[i][0]);
 		printf("%s\n", outputs[i]);
 	}
-	
+*/	
 	close(file);	
 
 	return 0;
