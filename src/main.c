@@ -351,7 +351,7 @@ int main (int argc, char* argv[]){
 
 			id = fork();
 			if(id == 0){
-				char output_file[100];
+				char output_file[0];
 				sprintf(output_file, "%scomando%d.txt", FAUX_PATH, nFilho);
 				int output_des = open(output_file, O_RDWR | O_CREAT, 0666);  	
 				int to_send, n_read;
