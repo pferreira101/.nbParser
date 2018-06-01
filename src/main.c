@@ -13,7 +13,7 @@
 // Como cada processo tem dois pipes, assim sabemos qual o seu indice
 #define PIPE_READ(x) ((x)*2)
 #define PIPE_WRITE(x) ((x)*2 + 1)
-
+#define FAUX_PATH "/tmp/aux/" 
 
 // Estrutura para o parser do ficheiro
 struct cmd{
@@ -47,6 +47,14 @@ void interrupt(int x){
 	printf("\nProcessamento cancelado pelo utilizador.\n");
 	exit(-1);
 	//falta matar filhos
+}
+
+char * mystrdup (const char *s) {
+    if(s == NULL) return NULL;          
+    char *d = malloc (strlen (s) + 1); 
+    if (d == NULL) return NULL;       
+    strcpy (d,s);                    
+    return d;                       
 }
 
 // Funcao para ver se o processo que faz redirecionamento do output pode fechar um descritor ou nao
@@ -155,7 +163,6 @@ void loadCmds(struct cmd *cmds, char* file){
 			for(j = 0; file[i] != '\n' && file[i] != '\0'; i++, j++) line[j] = file[i];
 			
 			line[j] = '\0';
-			
 			cmds[cmd_id].text = strdup(line);
 
 			/* Debugging */ printf("Texto: %s\n", cmds[cmd_id].text);
@@ -249,6 +256,8 @@ int getNumOfCmds(char* file){
 		printf("Erro\n");
 	}
 
+	close(pd2[0]);
+
 	sscanf(buffer, "%d", &numCmds);
 
 	return numCmds;
@@ -296,6 +305,7 @@ int main (int argc, char* argv[]){
 	// Carregar ficheiro para string Buffer
 	while(read(file, buffer, fileSize)>0); 
 	
+	close(file);	
 
 	// Parser do ficheiro para a estrutura
 	loadCmds(cmds, buffer);
@@ -305,20 +315,10 @@ int main (int argc, char* argv[]){
 		printCMD(cmds, i);
 	}	
 
-
-	/* ----------------------------------------- Não sei se estes dois ciclos estão bem ------------------------- */
-	// Cria n_cmds ficheiros 
-	for(int i = 0; i < n_cmds; i++){
-		char n_output[50];
-		sprintf(n_output, "comando%d.txt", i); 
-		int fid = open(n_output, O_CREAT | O_RDWR, 0666);
-	}
-
 	// Cria 2*n_cmds pipes
 	int pipeArray[n_cmds*2][2];
-	for(int i=0; i < n_cmds; i++) pipe(pipeArray[i]);
+	for(int i=0; i < n_cmds*2; i++) pipe(pipeArray[i]);
 
-	
 
 	for(nFilho =0; nFilho < n_cmds; nFilho++){
 
@@ -342,7 +342,7 @@ int main (int argc, char* argv[]){
 			else 
 				dup2(pipeArray[PIPE_READ(nFilho)][0], 0);
 
-/* erro? */	dup2(pipeArray[PIPE_WRITE(nFilho)][1], 1); // nao esta a funcionar!!!
+			dup2(pipeArray[PIPE_WRITE(nFilho)][1], 1);
 
 			execvp(to_exec.cmd[0], to_exec.cmd);
 			exit(-1);
@@ -351,13 +351,12 @@ int main (int argc, char* argv[]){
 
 			id = fork();
 			if(id == 0){
-				char output_file[50];
-				sprintf(output_file, "comando%d.txt", nFilho);
-				int output_des = open(output_file, O_RDWR);  	
+				char output_file[100];
+				sprintf(output_file, "%scomando%d.txt", FAUX_PATH, nFilho);
+				int output_des = open(output_file, O_RDWR | O_CREAT, 0666);  	
 				int to_send, n_read;
-				char result_buffer[1024];
+				char* result_buffer = malloc(1024 * sizeof(char));
 				struct cmd to_exec = cmds[nFilho];
-
 				for(int i=0; i<n_cmds; i++){
 					if(i != nFilho) close(pipeArray[PIPE_WRITE(i)][0]);						
 					if(i != nFilho && elem(to_exec.needs_me, to_exec.needs_me_len, i) == 0)						
@@ -367,19 +366,21 @@ int main (int argc, char* argv[]){
 					close(pipeArray[PIPE_READ(i)][0]);
 
 				}
+				close(pipeArray[PIPE_READ(nFilho)][1]);
 
  				while((n_read = read(pipeArray[PIPE_WRITE(nFilho)][0], result_buffer, 1024)) > 0){
 						for(int i=0; i< to_exec.needs_me_len; i++){
 							to_send = to_exec.needs_me[i];
 							write(pipeArray[PIPE_READ(to_send)][1], result_buffer, n_read);
 						}
-						write(output_des, buffer, n_read);
+						write(output_des, result_buffer, n_read);
 				}	
 
 				for(int i=0; i< to_exec.needs_me_len; i++){ // fechar os descritores para escrita
 					to_send = to_exec.needs_me[i];
 					close(pipeArray[PIPE_READ(to_send)][1]);
 				}
+
 				close(pipeArray[PIPE_WRITE(nFilho)][0]);
 				close(output_des);
 				exit(0);		
@@ -397,10 +398,6 @@ int main (int argc, char* argv[]){
 	for(int i = 0; i<n_cmds*2;  i++){
 		wait(NULL);
 	}
-
-
-
-	close(file);	
 
 	return 0;
 }
