@@ -1,8 +1,8 @@
 Notebook: main.c
 	gcc main.c -o notebook
-	mkdir /tmp/aux
+	mkdir -p /tmp/notebook
 
 
 clean: 
 	rm notebook
-	rm -r /tmp/aux
+	rm -r /tmp/notebook

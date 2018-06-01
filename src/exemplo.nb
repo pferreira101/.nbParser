@@ -1,5 +1,5 @@
 Este comando lista os ficheiros:
-$ ls
+$ ls -t
 >>>
 resultado
 >>>

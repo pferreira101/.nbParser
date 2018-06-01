@@ -13,13 +13,16 @@
 // Como cada processo tem dois pipes, assim sabemos qual o seu indice
 #define PIPE_READ(x) ((x)*2)
 #define PIPE_WRITE(x) ((x)*2 + 1)
-#define FAUX_PATH "/tmp/aux/" 
+#define FAUX_PATH "/tmp/notebook/"
+#define SUP_DELIM ">>>\n"
+#define INF_DELIM "<<<\n"
 
 // Estrutura para o parser do ficheiro
 struct cmd{
 	int id; // será preciso ou basta o indice?
 	char* text;
 	char** cmd;
+	char* full_cmd; // comando completo com $ e args
 	int* needs_me;
 	int needs_me_len;
 	int my_input_id;
@@ -148,10 +151,10 @@ int* addNeedsMe(int* needs_me, int n, int x){
 
 // Parser para a estrutura
 
-void loadCmds(struct cmd *cmds, char* file){
+void loadCmds(struct cmd *cmds, char* file, int fileSize){
 	int cmd_id = 0;
 
-	char* line = malloc(sizeof(file));
+	char* line = malloc(sizeof(char)*fileSize);
 
 	// Analisa o ficheiro todo
 	for(int i = 0; file[i] != '\0'; i++){
@@ -181,6 +184,7 @@ void loadCmds(struct cmd *cmds, char* file){
 			int x = getDependentNumber(line);
 			/* Debugging */ //printf("Depende do comando %d (%d comandos atrás)\n", cmd_id-x, x);
 
+			cmds[cmd_id].full_cmd = strdup(line);			
 			cmds[cmd_id].cmd = transformCmdLine(line);
 
 			cmds[cmd_id - x].needs_me_len=0;
@@ -271,11 +275,8 @@ int main (int argc, char* argv[]){
 	if(argc == 1){
 		printf("Especifique um ficheiro\n");
 		return -1;
-	
 	}
 
-	char* supDelim = ">>>\n";
-	char* infDelim = "<<<\n";
 	int nFilho = 0;
 	char *path = argv[1];	
 	char *buffer;
@@ -285,7 +286,7 @@ int main (int argc, char* argv[]){
 	struct cmd *cmds = malloc(sizeof(struct cmd)*n_cmds);
 
 	int file = open(path, O_RDWR); //abrir ficheiro
-	int fileSize;
+	int fileSize=0;
 
 	if(file < 0){
 		printf("Não existe o ficheiro\n");
@@ -308,7 +309,7 @@ int main (int argc, char* argv[]){
 	close(file);	
 
 	// Parser do ficheiro para a estrutura
-	loadCmds(cmds, buffer);
+	loadCmds(cmds, buffer,fileSize);
 
 	/* Debugging */
 	for(int i = 0; i<n_cmds; i++){
@@ -398,6 +399,31 @@ int main (int argc, char* argv[]){
 	for(int i = 0; i<n_cmds*2;  i++){
 		wait(NULL);
 	}
+	
+	// escrita final: conquer
+	int n_read;
+	int fid = open(argv[1],O_TRUNC | O_WRONLY,0666);
+	
+	for (int i=0; i<n_cmds; i++) {
+		write(fid,cmds[i].text,strlen(cmds[i].text));
+		write(fid,"\n",1);
+		write(fid,cmds[i].full_cmd,strlen(cmds[i].full_cmd));
+		write(fid,"\n",1);
+
+		char res_buf;
+
+		char output_file[0];
+		sprintf(output_file, "%scomando%d.txt", FAUX_PATH, i);
+		int output_src = open(output_file, O_RDWR | O_CREAT, 0666);
+
+		write(fid,SUP_DELIM,4);
+		while(n_read=read(output_src,&res_buf,1)>0){
+			write(fid,&res_buf,n_read);
+		}
+		write(fid,INF_DELIM,4);
+		close(output_src);
+	}
+	close(fid);
 
 	return 0;
 }
