@@ -11,8 +11,8 @@
 
 
 // Como cada processo tem dois pipes, assim sabemos qual o seu indice
-#define PIPE_READ(x) = (x*2)
-#define PIPE_WRITE(x) = (x*2 + 1)
+#define PIPE_READ(x) ((x)*2)
+#define PIPE_WRITE(x) ((x)*2 + 1)
 
 
 // Estrutura para o parser do ficheiro
@@ -49,7 +49,14 @@ void interrupt(int x){
 	//falta matar filhos
 }
 
+// Funcao para ver se o processo que faz redirecionamento do output pode fechar um descritor ou nao
+int elem(int* needs_me, int needs_me_len, int n){
+	for(int i=0; i<needs_me_len; i++)
+		if(n == needs_me[i])
+			return 1;
 
+    return 0;
+}
 
 // Auxiliares ao parser
 
@@ -57,6 +64,7 @@ int getDependentNumber(char* str){
 	char* aux = malloc(sizeof(str));
 	int i;
 
+	if(str[1] == ' ') return -1; // "$  cmd"
 	if(str[1] == '|') return 1; // obrigaga a que o texto seja escrito com a regra "$|" 
 	
 	for(i = 1; !isalpha(str[i]) && str[i] != '|'; i++){
@@ -72,38 +80,43 @@ int getDependentNumber(char* str){
 
 char* getCmd(char* cmd){
 	int i, j;
+		printf("got here\n");
+
 	char* r = malloc(sizeof(cmd));
 
-	for(i = 0; !isalpha(cmd[i]); i++);
+	
 	for(j = 0, i = i; cmd[i] != '\n'; i++, j++){
 		r[j] = cmd[i];
 	}
 
 	r[j] = '\0';
-
+	printf("got here\n");
 	return r;
 }
 
 
 
 char** transformCmdLine(char* cmd_line){
-	int n_args = 0;
+	int n_args = 0, i, first_alpha;
 
-	for (int i = 0; cmd_line[i]!='\0'; i++){					
+	for(i = 0; !isalpha(cmd_line[i]); i++);
+	first_alpha = i;	
+		
+	for (i = 0; cmd_line[i]!='\0'; i++){					
 		if(cmd_line[i] == ' ') n_args++;
 	}
 
 	char** cmd_args = malloc(sizeof(char*) * (n_args+1));
 	cmd_args[n_args] = NULL; // terminar a o array a null para efeitos de exec
 
-	int i = 0;
+	i = 0;
 	char* token; 
 
-  	token = strtok (cmd_line," ");
+  	token = strtok (cmd_line + first_alpha," ");
 
   	while(token != NULL){
    		cmd_args[i++] = strdup(token);
-
+   		printf("%s\n", token);
     	token = strtok (NULL, " ");
   	}
   	
@@ -158,20 +171,19 @@ void loadCmds(struct cmd *cmds, char* file){
 			line[j] = '\0';
 			/* Debugging */ printf("Linha com comando: %s\n", line);
 
-
-			char* cmd_line = getCmd(line);
-			/* Debugging */ printf("Comando: %s\n", cmd_line);
-
 			int x = getDependentNumber(line);
 			/* Debugging */ //printf("Depende do comando %d (%d comandos atrás)\n", cmd_id-x, x);
 
-			cmds[cmd_id].cmd = transformCmdLine(cmd_line);
+			cmds[cmd_id].cmd = transformCmdLine(line);
+
+			cmds[cmd_id - x].needs_me_len=0;
 			if(x >= 0) cmds[cmd_id].my_input_id = cmd_id - x;
 			else cmds[cmd_id].my_input_id = -1;
 			if(x != -1){
 				cmds[cmd_id - x].needs_me = addNeedsMe(cmds[cmd_id - x].needs_me, cmds[cmd_id - x].needs_me_len, cmd_id);
 				cmds[cmd_id - x].needs_me_len++;
 			}
+			printf("%d\n", cmds[cmd_id - x].needs_me_len);
 			cmd_id++;
 			/* Debugging */ printf("Processou comando\n");
 		}
@@ -291,71 +303,103 @@ int main (int argc, char* argv[]){
 	/* Debugging */
 	for(int i = 0; i<n_cmds; i++){
 		printCMD(cmds, i);
-	}
+	}	
 
 
 	/* ----------------------------------------- Não sei se estes dois ciclos estão bem ------------------------- */
 	// Cria n_cmds ficheiros 
 	for(int i = 0; i < n_cmds; i++){
-		char n_output[10];
-		sprintf(n_output, "%d", i); 
+		char n_output[50];
+		sprintf(n_output, "comando%d.txt", i); 
 		int fid = open(n_output, O_CREAT | O_RDWR, 0666);
 	}
 
 	// Cria 2*n_cmds pipes
-	int pipe_array[n_cmds*2][2];
-	for(int i=0; i < n_cmds; i++) pipe(pipe_array[i]);
-
-	/* ---------------------------------------------- Não mudei a partir daqui ------------------------------------------------------*/
-/*
-	// array de pipes, tantos como comandos 
-	int pipeArray[n_cmds][2];
-	// guardar resultados para escrever no doc
-	char outputs[n_cmds][2048];
-
-
-	
-	for (int i=0; i<fileSize; i++) {
-		if (buffer[i] == '$') { //carregar comando simples para a string cmd
-			char cmdLine[2048]; //max unix line: getconf LINE_MAX
-			int count = 1;			
-
-			if (buffer[i+1] == '|') i = i+3;
-			else i = i+2;
+	int pipeArray[n_cmds*2][2];
+	for(int i=0; i < n_cmds; i++) pipe(pipeArray[i]);
 
 	
 
-			char** cmdArgs = transformCmdLine(cmdLine);
+	for(nFilho =0; nFilho < n_cmds; nFilho++){
 
-			pipe(pipeArray[nFilho]);
+		int id = fork();
 
-			int id = fork();
+		if(id == 0){
+			struct cmd to_exec = cmds[nFilho];
 
-			if(id == 0){
+			for(int i=0; i<n_cmds; i++){
+				close(pipeArray[PIPE_READ(i)][1]);
+				close(pipeArray[PIPE_WRITE(i)][0]);
 
-				dup2(pipeArray[nFilho][1], 1);
-				close(pipeArray[nFilho][0]);
-
-				execvp(cmdArgs[0], cmdArgs);
-				exit(-1);
+				if(i != nFilho){ 
+					close(pipeArray[PIPE_READ(i)][0]);
+					close(pipeArray[PIPE_WRITE(i)][1]);
+				}					
 			}
-			else{
-				close(pipeArray[nFilho][1]);
-				nFilho++;
+
+			if(to_exec.my_input_id == -1) // teste se precisa de resultado de outro comando
+				close(pipeArray[PIPE_READ(nFilho)][0]);  // se nao precisar fecha
+			else 
+				dup2(pipeArray[PIPE_READ(nFilho)][0], 0);
+
+/* erro? */	dup2(pipeArray[PIPE_WRITE(nFilho)][1], 1); // nao esta a funcionar!!!
+
+			execvp(to_exec.cmd[0], to_exec.cmd);
+			exit(-1);
+		}
+		else{
+
+			id = fork();
+			if(id == 0){
+				char output_file[50];
+				sprintf(output_file, "comando%d.txt", nFilho);
+				int output_des = open(output_file, O_RDWR);  	
+				int to_send, n_read;
+				char result_buffer[1024];
+				struct cmd to_exec = cmds[nFilho];
+
+				for(int i=0; i<n_cmds; i++){
+					if(i != nFilho) close(pipeArray[PIPE_WRITE(i)][0]);						
+					if(i != nFilho && elem(to_exec.needs_me, to_exec.needs_me_len, i) == 0)						
+						close(pipeArray[PIPE_READ(i)][1]); // fechar descritor de escrita porque nao vai ser preciso enviar resultado a este
+					
+					close(pipeArray[PIPE_WRITE(i)][1]);
+					close(pipeArray[PIPE_READ(i)][0]);
+
+				}
+
+ 				while((n_read = read(pipeArray[PIPE_WRITE(nFilho)][0], result_buffer, 1024)) > 0){
+						for(int i=0; i< to_exec.needs_me_len; i++){
+							to_send = to_exec.needs_me[i];
+							write(pipeArray[PIPE_READ(to_send)][1], result_buffer, n_read);
+						}
+						write(output_des, buffer, n_read);
+				}	
+
+				for(int i=0; i< to_exec.needs_me_len; i++){ // fechar os descritores para escrita
+					to_send = to_exec.needs_me[i];
+					close(pipeArray[PIPE_READ(to_send)][1]);
+				}
+				close(pipeArray[PIPE_WRITE(nFilho)][0]);
+				close(output_des);
+				exit(0);		
 			}
 		}
 	}
 
-	for(int i = 0; i<nFilho;  i++){
+	for(int i=0; i<n_cmds; i++){
+		close(pipeArray[PIPE_WRITE(i)][0]);
+		close(pipeArray[PIPE_WRITE(i)][1]);
+		close(pipeArray[PIPE_READ(i)][0]);
+		close(pipeArray[PIPE_READ(i)][1]);
+	}
+
+	for(int i = 0; i<n_cmds*2;  i++){
 		wait(NULL);
 	}
 
-	for(int i=0; i<nFilho; i++){
-		int n_read = read(pipeArray[i][0], outputs[i], 2048);
-		close(pipeArray[i][0]);
-		printf("%s\n", outputs[i]);
-	}
-*/	
+
+
 	close(file);	
 
 	return 0;
