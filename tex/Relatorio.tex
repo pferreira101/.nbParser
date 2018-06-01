@@ -1,0 +1,100 @@
+\documentclass[a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[portuges]{babel}
+\usepackage{a4wide}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{caption}
+\usepackage{subcaption}
+\title{Projeto de Sistemas Operativos\\Grupo 20}
+\author{Henrique Pereira (a80261) \and Pedro Moreira (a82364) \and Pedro Ferreira (a81135) }
+
+
+
+%% DEFINIÇÃO DOS SNIPPETS EM C
+\usepackage{listings}
+\lstdefinestyle{customc}{
+  belowcaptionskip=1\baselineskip,
+  breaklines=true,
+  language=C,
+  showstringspaces=false,
+  basicstyle=\footnotesize\ttfamily,
+  keywordstyle=\bfseries\color{green!40!black},
+  morekeywords={GArray,GHashTable,GTree,STR_pair,LONG_list,LONG_pair,USER,TCD_community, User,Post, Tag},keywordstyle=\bfseries\color{green!40!black},
+  commentstyle=\itshape\color{gray},
+  stringstyle=\color{orange},
+}
+
+\lstset{escapechar=@,style=customc}
+
+
+
+
+\begin{document}
+
+\maketitle
+
+\newpage
+
+\tableofcontents
+
+\newpage
+
+\section{Introdução}
+\label{sec:intro}
+
+No contexto da Unidade Curricular Sistemas Operativos (SO), foi-nos proposto o desenvolvimento de um processador de \textit{Notebooks}. 
+Um \textit{Notebook} é um ficheiro de texto que mistura fragmentos de código, resultados de execução e documentação. 
+Este projeto foi desenvolvido na linguagem \textit{C}.
+Na secção \ref{sec:note} serão apresentadas as estratégias criadas pelo grupo para a concretização dos requisitos apresentados.
+Na secção \ref{sec:reflexao} será feita uma reflexão crítica sobre o desempenho da nossa solução e será discutida uma outra.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Processador de Notebook}
+\label{sec:note}
+
+Como já referido, um \textit{Notebook} é uma mistura de vários tipos de texto. Perante o enunciado proposto e, desde pronto, a pensar nas 
+\textit{Funcionalidades Avançadas} o grupo decidiu criar uma estrutura que guardasse os fragmentos de código (comandos) e todas as dependências entre si.
+Essa estrutura tem os seguintes campos: 
+
+%%%% CODIGO BONITINHO DA ESTRUTURA
+
+\begin{itemize}
+  \item{text - corresponde à documentação do respetivo fragmento de código}
+  \item{cmd - fragmento de código a ser executado}
+  \item{needsme - índices dos comandos que necessitam do output gerado por este comando} %% NÃO DÁ COM _ NO NOME
+  \item{needsmelen - } %% É PRECISO ESTE?
+  \item{myinputid - índice do input necessário para a execução deste comando}
+\end{itemize}
+
+%% Falar que a estratégia passa pelo carregamento do ficheiro para um buffer, parser para a estrutura bla bla bla...	
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Reflexão}
+\label{sec:reflexao}
+
+A estratégia que criamos para a resolução do problema tem os seguintes problemas:
+
+\begin{itemize}
+  \item{Uso desnecessário de memória - asdasdfasdf}
+  \item{Possibilidade de bloqueio - asdasdasda}
+\end{itemize}
+
+O grupo também tem a noção de que a solução não é a ideal .............
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Conclusões}
+\label{sec:conclusao}
+
+Este projeto foi extremamente enriquecedor para o grupo, uma vez que nos permitiu pôr em prática os conhecimentos adquiridos nas aulas de SO.
+
+Em suma, na nossa opinião, os requisitos propostos foram cumpridos e conjugados com êxito, sendo que o resultado final, apesar de não ser o ideal, revela-se apelativo e funcional.
+
+Foi, no geral, um trabalho  altamente pedagógico, que nos permitiu desenvolver não só competências essenciais ao curso de Mestrado Integrado em Engenharia Informática, como também competências sociais, tais como o trabalho em grupo.
+
+\end{document}\grid
