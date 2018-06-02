@@ -4,5 +4,5 @@ Notebook: main.c
 
 
 clean: 
-	rm notebook
+	unlink notebook
 	rm -r /tmp/notebook
