@@ -2,3 +2,14 @@ Bom dia,
 Apresento o meu exemplo de notebook:
 Para listar todo o conteudo duma diretoria:
 $ ls -a
+>>>
+.
+..
+exemplo1.nb
+exemplo2.nb
+exemplo4.nb
+exemplo.nb
+main.c
+Makefile
+notebook
+<<<

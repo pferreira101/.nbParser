@@ -109,9 +109,13 @@ estrutura \texttt{my\_input\_id} o ID relativo do output necessário para a exec
 BLABLABLA
 
 %% Fase de escrita
-Após o carregamento e a execução concorrente dos comandos presentes no \textit{Notebook} passado como argumento, chega a fase de juntar os resultados de todos estes comandos ao \textit{Notebook}. Para tal, bastou-nos aceder a cada um dos ficheiros auxiliares e escrevê-los (com o \texttt{write}) num novo ficheiro \textit{.nb}, encadeando estes resultados com o texto já existente no ficheiro-argumento original, através dos delimitadores \texttt{>>>} e \texttt{<<<}. 
+Após o carregamento e a execução concorrente dos comandos presentes no \textit{Notebook} passado como argumento, chega a fase de juntar os resultados 
+de todos estes comandos ao \textit{Notebook}. Para tal, bastou-nos aceder a cada um dos ficheiros auxiliares e escrevê-los (com o \texttt{write}) num 
+novo ficheiro \textit{.nb}, encadeando estes resultados com o texto já existente no ficheiro-argumento original, através dos delimitadores '>>>' e '<<<'. 
 
-Após este processo, com o novo \textit{Notebook} já pronto, foi apenas necessário substituir o ficheiro antigo por este, utilizando para isso a \textit{system call} \texttt{rename}. Para efeitos de limpeza, apagamos, de seguida, todos os ficheiros auxiliares até agora criados (exceto o \textit{.nb}), assim como a pasta que os continha, cujo \textit{path} é o seguinte: \texttt{/tmp/notebook}.
+Após este processo, com o novo \textit{Notebook} já pronto, foi apenas necessário substituir o ficheiro antigo por este, utilizando para isso a \textit{system call} 
+\texttt{rename}. Para efeitos de limpeza, apagamos, de seguida, todos os ficheiros auxiliares até agora criados (exceto o \textit{.nb}), assim como a pasta que os 
+continha, cujo \textit{path} é o seguinte: \texttt{/tmp/notebook}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -138,8 +142,8 @@ Para além disso, caso haja um erro, o programa para a sua execução e não alt
 
 %% Exemplo 1
 \begin{lstlisting}[caption=1º Exemplo]
-Este comando lista os ficheiros:
-$ ls
+Este comando lista os ficheiros por data:
+$ ls -t
 Agora podemos ordenar estes ficheiros:
 $| sort
 E escolher o primeiro:
@@ -148,7 +152,27 @@ $| head -1
 
 %% Resultado 1
 \begin{lstlisting}[caption=Resultado do 1º Exemplo]
-
+Este comando lista os ficheiros por data:
+$ ls -t
+>>>
+exemplo.nb
+notebook
+main.c
+Makefile
+<<<
+Agora podemos ordenar estes ficheiros:
+$| sort
+>>>
+exemplo.nb
+main.c
+Makefile
+notebook
+<<<
+E escolher o primeiro:
+$| head -1
+>>>
+exemplo.nb
+<<<
 \end{lstlisting}
 
 
@@ -165,7 +189,21 @@ $2| wc -c
 %% Resultado 2
 
 \begin{lstlisting}[caption=Resultado do 2º Exemplo]
-
+Este comando imprime a diretoria corrente:
+$ pwd
+>>>
+/home/bishop/MIEI/2º Ano/2º Semestre/Sistemas Operativos/Projeto/so-projeto/src
+<<<
+E podemos contar o tamanho em palavras:
+$| wc -w
+>>>
+4
+<<<
+Ou podemos contar o tamanho em carateres:
+$2| wc -c
+>>>
+82
+<<<
 \end{lstlisting}
 
 
@@ -180,6 +218,18 @@ $ ls -a
 %% Resultado 3
 
 \begin{lstlisting}[caption=Resultado do 3º Exemplo]
+Bom dia,
+Apresento o meu exemplo de notebook:
+Para listar todo o conteudo duma diretoria:
+$ ls -a
+>>>
+.
+..
+exemplo.nb
+main.c
+Makefile
+notebook
+<<<
 
 \end{lstlisting}
 
@@ -193,9 +243,12 @@ $ ls -a
 A estratégia que criamos para a resolução do problema tem os seguintes problemas:
 
 \begin{itemize}
-  \item{Uso desnecessário de memória - ao carregarmos todo o conteúdo do ficheiro para um buffer (ou seja, para uma String), estamos a carregar o ficheiro todo para a memória central, o que pode representar um problema se estivermos a lidar com ficheiros de grande dimensão,comprometendo desta forma a eficiência e, até, o funcionamento do programa.}
+  \item{Uso desnecessário de memória - ao carregarmos todo o conteúdo do ficheiro para um buffer (ou seja, para uma String), estamos a carregar o ficheiro 
+  todo para a memória central, o que pode representar um problema se estivermos a lidar com ficheiros de grande dimensão, comprometendo desta forma a eficiência 
+  e, até, o funcionamento do programa.}
+  \item{Número de pipes - o número de pipes que criámos é superior àquele que utilizamos, pois contabilizamos dois para cada comando, apesar de apenas utilizarmos 
+  ambos quando o output de um comando é necessário para o input de outro.}
   \item{Possibilidade de bloqueio - asdasdasda}
-  \item{Número de pipes - o número de pipes que criámos é superior àquele que utilizamos, pois contabilizamos dois para cada comando, apesar de apenas utilizarmos ambos quando o output de um comando é necessário para o input de outro.}
 \end{itemize}
 
 O grupo também tem a noção de que a solução não é a ideal .............
