@@ -13,9 +13,9 @@
 // Como cada processo tem dois pipes, assim sabemos qual o seu indice
 #define PIPE_READ(x) ((x)*2)
 #define PIPE_WRITE(x) ((x)*2 + 1)
-#define FAUX_PATH "/tmp/notebook/"
-#define SUP_DELIM ">>>"
-#define INF_DELIM "<<<"
+#define TMP_PATH "/tmp/notebook/"
+#define SUP_DELIM ">>>\n"
+#define INF_DELIM "<<<\n"
 
 // Estrutura para o parser do ficheiro
 typedef struct cmd{
@@ -365,7 +365,7 @@ int main (int argc, char* argv[]){
 			id = fork();
 			if(id == 0){
 				char output_file[100];
-				sprintf(output_file, "%scomando%d.txt", FAUX_PATH, nFilho);
+				sprintf(output_file, "%scomando%d.txt", TMP_PATH, nFilho);
 				int output_des = open(output_file, O_RDWR | O_CREAT, 0666);	
 				int to_send, n_read;
 				char* result_buffer = malloc(1024 * sizeof(char));
@@ -431,11 +431,10 @@ int main (int argc, char* argv[]){
 	kill(check_error, SIGKILL);
 
 
-
-/*
 	// Reescrita no ficheiro
-	int n_read;
-	int fid = open(argv[1],O_TRUNC | O_WRONLY,0666);
+
+	char *result_file="result.nb";
+	int fid = open(result_file,O_CREAT | O_WRONLY,0666);
 	
 	for (int i=0; i<n_cmds; i++) {
 		write(fid,cmds[i]->text,strlen(cmds[i]->text));
@@ -445,8 +444,8 @@ int main (int argc, char* argv[]){
 
 		char res_buf;
 
-		char output_file[0];
-		sprintf(output_file, "%scomando%d.txt", FAUX_PATH, i);
+		char *output_file;
+		sprintf(output_file, "%scomando%d.txt", TMP_PATH, i);
 		int output_src = open(output_file, O_RDONLY);
 
 		write(fid,SUP_DELIM,4);
@@ -456,8 +455,18 @@ int main (int argc, char* argv[]){
 		write(fid,INF_DELIM,4);
 		close(output_src);
 	}
-	
 	close(fid);
-*/
+
+	// substituir .nb original pelo novo com os resultados
+	rename("result.nb",argv[1]);
+
+	// remover ficheiros e pasta auxiliares
+	for (int i=0; i<n_cmds; i++) {
+		char *output_file;
+		sprintf(output_file, "%scomando%d.txt", TMP_PATH, i);
+		unlink(output_file);
+	}
+	rmdir(TMP_PATH);
+
 	return 0;
 }
