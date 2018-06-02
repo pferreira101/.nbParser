@@ -14,8 +14,8 @@
 #define PIPE_READ(x) ((x)*2)
 #define PIPE_WRITE(x) ((x)*2 + 1)
 #define FAUX_PATH "/tmp/notebook/"
-#define SUP_DELIM ">>>\n"
-#define INF_DELIM "<<<\n"
+#define SUP_DELIM ">>>"
+#define INF_DELIM "<<<"
 
 // Estrutura para o parser do ficheiro
 typedef struct cmd{
@@ -34,7 +34,7 @@ Comando initComando(){
 	new->cmd = NULL;
 	new->full_cmd = NULL;
 	new->needs_me = NULL;
-	new->needs_me = 0;
+	new->needs_me_len = 0;
 	new->my_input_id = -1;
 
 	return new;
@@ -110,7 +110,7 @@ int getDependentNumber(char* str){
 
 
 char** transformCmdLine(char* cmd_line){
-	int n_args = 0, i, first_alpha;
+	int n_args = 0, n, i , j, first_alpha;
 
 	for(i = 0; !isalpha(cmd_line[i]); i++);
 	first_alpha = i;	
@@ -122,16 +122,15 @@ char** transformCmdLine(char* cmd_line){
 	char** cmd_args = malloc(sizeof(char*) * (n_args+1));
 	cmd_args[n_args] = NULL; // terminar a o array a null para efeitos de exec
 
-	i = 0;
-	char* token; 
-	printf("%d\n", n_args);
-  	token = strtok (cmd_line + first_alpha," ");
-  	int j=0;
-  	while(token != NULL){
-   		cmd_args[i++] = strdup(token);
-    	token = strtok (NULL, " ");
-  	}
-  	
+	
+	char* token; i=n=0;
+	while((cmd_line+first_alpha)[i] != '\0'){
+		j=i;
+		while((cmd_line+first_alpha)[j] != '\0' && (cmd_line+first_alpha)[j] != ' ')j++; 
+		cmd_args[n++] = mystrndup(cmd_line+first_alpha, j-i);
+		i=j;
+	}
+
   	return cmd_args;
 }
 
@@ -157,34 +156,32 @@ void loadCmds(Comando* cmds, char* file, int fileSize){
 	int i=0;
 	char* line = malloc(sizeof(char)*fileSize);
 
-	// Analisa o ficheiro todo
 	while(file[i] != '\0'){
 		// Analisa linha a linha - Sabemos que estamos a iniciar uma linha nova no inicio do ciclo	
 		int j;
-
 		// le uma linha
 		for(j = 0; file[i] != '\0' && file[i] != '\n' ; i++, j++) line[j] = file[i];
 		i++; // para avancar \n 
-		line[j] = '\n';			
-		line[j+1] = '\0';
-		printf("%s\n", line);
+		line[j] = '\0';			
+
 		// É texto
 		if((line[0]) != '$' ){ 
 			// se tiver encontrado um resulado, deve ignorar
 			if(!strcmp(line, SUP_DELIM)){
 				do{ 
+					j=0;
 					while(file[i] != '\0' && file[i] != '\n') line[j++] = file[i++];
-					line[j]='\n'; line[j+1]='\0';
+					line[j]='\n'; line[j+1]='\0'; i++;
 				}while(!strcmp(line, INF_DELIM));
 
 			}
-			else{ // caso tenha encontrado uma linha de texto guarda-o
+			else{ // caso tenha encontrado uma linha de texto guarda-a
 				cmds[cmd_id]->text = strdup(line);
 			}
 		}
-				// É comando
+		// É comando
 		else if(line[0] == '$'){ 
-			printf("%s\n", line);
+
 			cmds[cmd_id]->full_cmd = strdup(line);			
 			cmds[cmd_id]->cmd = transformCmdLine(line);
 			int x = getDependentNumber(line);
@@ -194,6 +191,7 @@ void loadCmds(Comando* cmds, char* file, int fileSize){
 				cmds[cmd_id - x]->needs_me = addNeedsMe(cmds[cmd_id - x]->needs_me, cmds[cmd_id - x]->needs_me_len, cmd_id);
 				cmds[cmd_id - x]->needs_me_len++;
 			}
+			cmd_id++;
 		}
 	}
 }
@@ -271,7 +269,7 @@ int main (int argc, char* argv[]){
 	char *buffer;
 	
 	int n_cmds = getNumOfCmds(argv[1]);
-	
+
 	Comando cmds[n_cmds];
 	for(int i=0; i<n_cmds; i++)
 		cmds[i] = initComando();
@@ -295,17 +293,16 @@ int main (int argc, char* argv[]){
 
 	// Carregar ficheiro para string Buffer
 	while(read(file, buffer, fileSize)>0);
+	buffer[fileSize] = '\0';
 
 	close(file);	
 
 	// Parser do ficheiro para a estrutura
 	loadCmds(cmds, buffer,fileSize);
 
-
 	// Cria 2*n_cmds pipes
 	int pipeArray[n_cmds*2][2];
 	for(int i=0; i < n_cmds*2; i++) pipe(pipeArray[i]);
-
 
 	for(nFilho =0; nFilho < n_cmds; nFilho++){
 
@@ -338,9 +335,9 @@ int main (int argc, char* argv[]){
 
 			id = fork();
 			if(id == 0){
-				char output_file[0];
+				char output_file[100];
 				sprintf(output_file, "%scomando%d.txt", FAUX_PATH, nFilho);
-				int output_des = open(output_file, O_RDWR | O_CREAT, 0666);  	
+				int output_des = open(output_file, O_RDWR | O_CREAT, 0666);	
 				int to_send, n_read;
 				char* result_buffer = malloc(1024 * sizeof(char));
 				Comando to_exec = cmds[nFilho];
@@ -385,7 +382,7 @@ int main (int argc, char* argv[]){
 	for(int i = 0; i<n_cmds*2;  i++){
 		wait(NULL);
 	}
-
+/*
 	// escrita final: conquer
 	int n_read;
 	int fid = open(argv[1],O_TRUNC | O_WRONLY,0666);
@@ -409,7 +406,8 @@ int main (int argc, char* argv[]){
 		write(fid,INF_DELIM,4);
 		close(output_src);
 	}
+	
 	close(fid);
-
+*/
 	return 0;
 }
