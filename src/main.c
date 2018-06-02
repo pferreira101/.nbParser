@@ -1,8 +1,14 @@
-#include <fcntl.h> //open file
-#include <unistd.h> //read/write
-#include <stdio.h> //printf
-#include <stdlib.h> //malloc
-#include <string.h> //strings
+/**
+	@file main.c
+   
+	Ficheiro com a nossa implementação do processador de Notebooks descrito no enunciado.
+*/
+
+#include <fcntl.h> 
+#include <unistd.h> 
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <string.h> 
 #include <sys/stat.h>
 #include <signal.h>
 #include <sys/types.h>
@@ -51,20 +57,6 @@ Comando initComando(){
 	return new;
 }
 
-/**
-* @brief Função para imprimir uma estrutura Comando
-*
-* @param cmd Estrutura a imprimir
-*/
-
-void printCMD(Comando cmd){
-	printf("Texto: %s\n", cmd->text);
-	printf("Preciso do: %d\n", cmd->my_input_id);
-
-	printf("Precisa de mim: ");
-	for(int i = 0; i<cmd->needs_me_len; i++) printf("%d, ", cmd->needs_me[i]);
-	printf("\n*********************\n");	
-}
 
 /** Variável global com os pids dos filhos */
 int* son_pids = NULL;
@@ -73,7 +65,11 @@ int son_pids_len = 0;
 /** Descritor do ficheiro do stderr para o pai o fechar */
 int des_error;
 
-// Muda o descritor do std_error
+
+
+/**
+* @brief Função que cria um filho que verifica se ocorreu algum erro durante a execução do programa
+*/
 int* criaFilhoSentinela(){
 	int n_read;
 	char aux;
@@ -90,8 +86,9 @@ int* criaFilhoSentinela(){
 	if(check_error == 0){
 		while((n_read = read(f_error, &aux, 1)) == 0);
 
-		if(n_read > 0){// Quando conseguiu ler algo no ficheiro
-			printf("encontrei um erro"); kill(getppid(), SIGINT); exit(0);
+		if(n_read > 0){ // Quando conseguiu ler algo no ficheiro
+			kill(getppid(), SIGINT); 
+			exit(0);
 		} 
 		else exit(0);
 	}
@@ -103,15 +100,21 @@ int* criaFilhoSentinela(){
 	return result;
 }
 
+/**
+* @brief Função que remove os ficheiros auxiliares criados durante a execução do programa
+* 
+* @param n_cmds Número total de comandos
+*/
 void removeFicheirosAuxiliares(int n_cmds){
-	for (int i = 0; i < n_cmds; i++) {
+	for(int i = 0; i < n_cmds; i++){
 		char output_file[100];
 		sprintf(output_file, "%scomando%d.txt", TMP_PATH, i);
 		unlink(output_file);
 	}
 	unlink("/tmp/notebook/error.txt");
-	unlink("resultado.nb"); // no caso de esta funcao ser usada pela interrupt 
-}							// este ficheiro deve ser eliminado
+	unlink("resultado.nb"); // no caso de esta funcao ser usada pela interrupt este ficheiro deve ser eliminado
+}
+
 	
 /**
 * @brief Função que permite cancelar o programa através do Ctrl-C ou ocorrencia de erro
@@ -138,8 +141,7 @@ char* mystrndup(char* string, int n_chars){
   char* result;
   int len = strlen(string);
 
-  if(n_chars < len)
-    len = n_chars;
+  if(n_chars < len) len = n_chars;
 
   result = malloc(len + 1);
   memcpy (result, string, len);
@@ -147,6 +149,7 @@ char* mystrndup(char* string, int n_chars){
 
   return result;
 }
+
 
 /**
 * @brief Funcao para ver se o processo que faz redirecionamento do output pode fechar um descritor ou nao
@@ -159,9 +162,9 @@ char* mystrndup(char* string, int n_chars){
 * @return 0 se puder fechar (o ID não está na lista), 1 caso contrário
 */
 int elem(int* needs_me, int needs_me_len, int n){
-	for(int i=0; i<needs_me_len; i++)
-		if(n == needs_me[i])
-			return 1;
+	for(int i=0; i<needs_me_len; i++){
+		if(n == needs_me[i]) return 1;
+	}
 
     return 0;
 }
@@ -184,18 +187,17 @@ int getDependentNumber(char* str){
 	char* aux = malloc(strlen(str));
 	int i;
 
-	if(str[1] == ' ') return -1; // "$  cmd"
-	if(str[1] == '|') return 1; // obriga a que o texto seja escrito com a regra "$|" 
+	if(str[1] == ' ') return -1; // Para diferenciar do comando nº 0
+	if(str[1] == '|') return 1;  
 	
 	for(i = 1;  str[i] != '|'; i++){
 		aux[i-1] = str[i];
 	}
 	aux[i] = '\0';
-	// ***** testar com \0 para ver se nao rebenta
-	int r = atoi(aux);
 
-	return r;
+	return atoi(aux);
 }
+
 
 /**
 * @brief Função que permite analisar uma linha de código, tratando os argumentos
@@ -208,6 +210,7 @@ char** transformCmdLine(char* cmd_line){
 	int n_args = 0, n, i , j, first_alpha;
 
 	for(i = 0; !isalpha(cmd_line[i]); i++);
+	
 	first_alpha = i;	
 		
 	for(i = 0; cmd_line[i]!='\0'; i++){					
@@ -264,14 +267,14 @@ int* addToArray(int* v, int n, int x){
 */
 void loadCmds(Comando* cmds, char* file, int fileSize){
 	int cmd_id = 0;
-	int i=0;
+	int i = 0;
 	char* line = malloc(sizeof(char)*fileSize);
 
 	while(file[i] != '\0'){
 		// Analisa linha a linha - Sabemos que estamos a iniciar uma linha nova no inicio do ciclo	
 		int j;
 
-		// Le uma linha
+		// Lê uma linha
 		for(j = 0; file[i] != '\0' && file[i] != '\n'; i++, j++) line[j] = file[i];
 		i++; // para avancar \n
 
@@ -281,7 +284,7 @@ void loadCmds(Comando* cmds, char* file, int fileSize){
 
 		// É texto
 		if((line[0]) != '$'){ 
-			// se tiver encontrado um resultado deve ignorar
+			// Se tiver encontrado um resultado deve ignorar
 			if(!strcmp(line, SUP_DELIM)){
 				do{ 
 					j=0; 
@@ -290,7 +293,7 @@ void loadCmds(Comando* cmds, char* file, int fileSize){
 				}while(strcmp(line, INF_DELIM) != 0 && i < fileSize);
 
 			}
-			else{ // caso tenha encontrado uma linha de texto guarda-a
+			else{ // Caso tenha encontrado uma linha de texto guarda-a
 				if(cmds[cmd_id]->text != NULL){
 					char* new_line = malloc(strlen(cmds[cmd_id]->text) + strlen(line) + 3);
 					strcat(new_line, cmds[cmd_id]->text);
@@ -307,6 +310,7 @@ void loadCmds(Comando* cmds, char* file, int fileSize){
 		else if(line[0] == '$'){ 
 			cmds[cmd_id]->full_cmd = strdup(line);			
 			cmds[cmd_id]->cmd = transformCmdLine(line);
+			
 			int x = getDependentNumber(line);
 			if(x >= 0) cmds[cmd_id]->my_input_id = cmd_id - x;
 
@@ -337,7 +341,7 @@ int getNumOfCmds(char* file){
 	id1 = fork();
 
 	if(id1==0){
-		dup2(pd1[1], 1); // redirecionar stdout para pipe escrita 
+		dup2(pd1[1], 1); // Redirecionar stdout para pipe escrita 
 
 		close(pd1[0]);
 		close(pd2[1]);
@@ -415,15 +419,12 @@ int main (int argc, char* argv[]){
 
 	// Abrir ficheiro
 	int file = open(path, O_RDWR); //abrir ficheiro
-	int fileSize=0;
+	int fileSize = 0;
 
 	if(file < 0){
 		printf("Não existe o ficheiro\n");
 		return -1;
 	}
-
-
-	//sleep(10); // apenas para testar o sinal
 
 	// Ver tamanho do ficheiro
 	struct stat st; 
@@ -433,7 +434,7 @@ int main (int argc, char* argv[]){
 	}
 
 	// Carregar ficheiro para string Buffer
-	while(read(file, buffer, fileSize)>0);
+	while(read(file, buffer, fileSize) > 0);
 	buffer[fileSize] = '\0';
 
 	close(file);	
@@ -448,9 +449,9 @@ int main (int argc, char* argv[]){
 	// Cria 2*n_cmds pipes
 	int pipeArray[n_cmds*2][2];
 	for(int i=0; i < n_cmds*2; i++) pipe(pipeArray[i]);
-
 	
-	for(nFilhoExec =0; nFilhoExec < n_cmds; nFilhoExec++){
+	// Inicia execução
+	for(nFilhoExec = 0; nFilhoExec < n_cmds; nFilhoExec++){
 		Comando to_exec = cmds[nFilhoExec];
 		
 		if(!to_exec->cmd) break; 
@@ -462,8 +463,6 @@ int main (int argc, char* argv[]){
 		son_pids_len++;
 
 		if(id == 0){
-	
-
 			for(int i=0; i<n_cmds; i++){
 				close(pipeArray[PIPE_READ(i)][1]);
 				close(pipeArray[PIPE_WRITE(i)][0]);
@@ -496,14 +495,15 @@ int main (int argc, char* argv[]){
 		}
 		else{
 			nFilhosCriados++;
-			if (to_exec->needs_me_len >0) {
+			if (to_exec->needs_me_len > 0){
 				id = fork();
 				if(id == 0){
-				char output_file[100];
+					char output_file[100];
 					sprintf(output_file, "%scomando%d.txt", TMP_PATH, nFilhoExec);
 					int output_des = open(output_file, O_RDWR | O_CREAT, 0666);	
 					int to_send, n_read;
 					char* result_buffer = malloc(1024 * sizeof(char));
+					
 					for(int i=0; i<n_cmds; i++){
 						if(i != nFilhoExec) close(pipeArray[PIPE_WRITE(i)][0]);							
 						if(i != nFilhoExec && elem(to_exec->needs_me, to_exec->needs_me_len, i) == 0)						
@@ -516,14 +516,14 @@ int main (int argc, char* argv[]){
 					close(pipeArray[PIPE_READ(nFilhoExec)][1]);
 
  					while((n_read = read(pipeArray[PIPE_WRITE(nFilhoExec)][0], result_buffer, 1024)) > 0){
-							for(int i=0; i< to_exec->needs_me_len; i++){
+							for(int i = 0; i < to_exec->needs_me_len; i++){
 								to_send = to_exec->needs_me[i];
 								write(pipeArray[PIPE_READ(to_send)][1], result_buffer, n_read);
 							}
 							write(output_des, result_buffer, n_read);
 					}	
 
-					for(int i=0; i< to_exec->needs_me_len; i++){ // fechar os descritores para escrita
+					for(int i = 0; i < to_exec->needs_me_len; i++){ // fechar os descritores para escrita
 						to_send = to_exec->needs_me[i];
 						close(pipeArray[PIPE_READ(to_send)][1]);
 					}
@@ -567,13 +567,10 @@ int main (int argc, char* argv[]){
 		write(fid, "\n", 1);
 
 		char res_buf;
-
 		char output_file[100];
 		sprintf(output_file, "%scomando%d.txt", TMP_PATH, i);
 
-
 		int output_src = open(output_file, O_RDONLY);
-
 
 		write(fid, SUP_DELIM, 3);
 		write(fid, "\n", 1);
@@ -587,7 +584,7 @@ int main (int argc, char* argv[]){
 	}
 	close(fid);
 
-	// substituir .nb original pelo novo com os resultados
+	// Substituir .nb original pelo novo com os resultados
 	rename("result.nb", argv[1]);
 
 	removeFicheirosAuxiliares(nFilhoExec);
