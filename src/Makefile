@@ -3,6 +3,19 @@ Notebook: main.c
 	mkdir -p /tmp/notebook
 
 
+doc:	
+	      doxygen -g && doxygen
+	mv    Doxyfile ../doc/Doxyfile
+	mv    latex ../doc/latex
+	mv    html ../doc/html
+	
+relatorio:
+	cd ../tex && pdflatex Relatorio.tex
+	mv ../tex/Relatorio.pdf ../Relatorio.pdf
+
 clean: 
-	unlink notebook
-	rm -r /tmp/notebook
+	rm -f notebook
+	rm -rf /tmp/notebook
+	rm -rf ../doc/latex
+	rm -rf ../doc/html
+	rm -f ../doc/Doxyfile
