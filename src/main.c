@@ -17,9 +17,9 @@
 /** Path para a pasta temporária com os ficheiros auxiliares */
 #define TMP_PATH "/tmp/notebook/"
 /** String com o delimitador superior dos resultados */
-#define SUP_DELIM ">>>\n"
+#define SUP_DELIM ">>>"
 /** String com o delimitador inferior dos resultados */
-#define INF_DELIM "<<<\n"
+#define INF_DELIM "<<<"
 
 /** 
 * @brief Estrutura para o parser do ficheiro
@@ -78,9 +78,9 @@ int son_pids_len = 0;
 * @brief Função que permite cancelar o programa através do Ctrl-C
 */
 void interrupt(int x){
-	printf("\nProcessamento cancelado pelo utilizador.\n");
 	for(int i = 0; i < son_pids_len; i++){
 		kill(son_pids[i], SIGKILL);
+		printf("filho %d morto\n", son_pids[i]);
 	}
 	exit(-1);
 }
@@ -90,7 +90,6 @@ void interrupt(int x){
 */
 
 void error(int x){
-	printf("\nProcessamento cancelado devido a erro\n");
 	for(int i = 0; i < son_pids_len; i++){
 		kill(son_pids[i], SIGKILL);
 	}
@@ -194,8 +193,9 @@ char** transformCmdLine(char* cmd_line){
 		j = i;
 		while((cmd_line+first_alpha)[j] != '\0' && (cmd_line+first_alpha)[j] != ' ') j++; 
 		cmd_args[n++] = mystrndup(cmd_line+first_alpha, j-i);
-		/* Debbuging */ printf("%s\n", cmd_args[n-1]);
-		i = j;
+		
+		if((cmd_line+first_alpha)[j] == '\0') i = j;
+		else i = j + 1;
 	}
 
   	return cmd_args;
@@ -269,7 +269,6 @@ void loadCmds(Comando* cmds, char* file, int fileSize){
 
 			cmds[cmd_id]->full_cmd = strdup(line);			
 			cmds[cmd_id]->cmd = transformCmdLine(line);
-			/* Debbuging */ printf("Transformação bem sucedida - %s\n", cmds[cmd_id]->cmd[0]);
 			int x = getDependentNumber(line);
 			if(x >= 0) cmds[cmd_id]->my_input_id = cmd_id - x;
 
@@ -447,7 +446,6 @@ int main (int argc, char* argv[]){
 				dup2(pipeArray[PIPE_READ(nFilho)][0], 0);
 
 			dup2(pipeArray[PIPE_WRITE(nFilho)][1], 1);
-
 			execvp(to_exec->cmd[0], to_exec->cmd);
 			exit(-1);
 		}
@@ -519,19 +517,19 @@ int main (int argc, char* argv[]){
 	}
 
 	// Mata o filho que estava encarregue de verificar se existiu algum erro durante a execução
-	kill(check_error, SIGKILL);
+	//kill(check_error, SIGKILL);
 
 
 	// Reescrita no ficheiro
 
-	char *result_file="result.nb";
-	int fid = open(result_file,O_CREAT | O_WRONLY,0666);
-	
-	for (int i=0; i<n_cmds; i++) {
-		write(fid,cmds[i]->text,strlen(cmds[i]->text));
-		write(fid,"\n",1);
-		write(fid,cmds[i]->full_cmd,strlen(cmds[i]->full_cmd));
-		write(fid,"\n",1);
+	char *result_file = "result.nb";
+	int fid = open(result_file, O_CREAT | O_WRONLY, 0666);
+
+	for (int i = 0; i < n_cmds; i++) {
+		write(fid, cmds[i]->text, strlen(cmds[i]->text));
+		write(fid, "\n", 1);
+		write(fid, cmds[i]->full_cmd, strlen(cmds[i]->full_cmd));
+		write(fid, "\n", 1);
 
 		char res_buf;
 
@@ -539,20 +537,23 @@ int main (int argc, char* argv[]){
 		sprintf(output_file, "%scomando%d.txt", TMP_PATH, i);
 		int output_src = open(output_file, O_RDONLY);
 
-		write(fid,SUP_DELIM,4);
-		while((n_read=read(output_src,&res_buf,1))>0){
-			write(fid,&res_buf,n_read);
+		write(fid, SUP_DELIM, 3);
+		write(fid, "\n", 1);
+		while((n_read = read(output_src, &res_buf, 1)) > 0){
+			write(fid, &res_buf, n_read);
 		}
-		write(fid,INF_DELIM,4);
+		write(fid, INF_DELIM, 3);
+		write(fid, "\n",1);
+
 		close(output_src);
 	}
 	close(fid);
 
 	// substituir .nb original pelo novo com os resultados
-	rename("result.nb",argv[1]);
+	rename("result.nb", argv[1]);
 
 	// remover ficheiros e pasta auxiliares
-	for (int i=0; i<n_cmds; i++) {
+	for (int i = 0; i < n_cmds; i++) {
 		char *output_file;
 		sprintf(output_file, "%scomando%d.txt", TMP_PATH, i);
 		unlink(output_file);
