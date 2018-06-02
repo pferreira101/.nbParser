@@ -111,7 +111,7 @@ BLABLABLA
 %% Fase de escrita
 Após o carregamento e a execução concorrente dos comandos presentes no \textit{Notebook} passado como argumento, chega a fase de juntar os resultados 
 de todos estes comandos ao \textit{Notebook}. Para tal, bastou-nos aceder a cada um dos ficheiros auxiliares e escrevê-los (com o \texttt{write}) num 
-novo ficheiro \textit{.nb}, encadeando estes resultados com o texto já existente no ficheiro-argumento original, através dos delimitadores \texttt{>>>} e \texttt{<<<}. 
+novo ficheiro \textit{.nb}, encadeando estes resultados com o texto já existente no ficheiro-argumento original, através dos delimitadores '>>>' e '<<<'. 
 
 Após este processo, com o novo \textit{Notebook} já pronto, foi apenas necessário substituir o ficheiro antigo por este, utilizando para isso a \textit{system call} 
 \texttt{rename}. Para efeitos de limpeza, apagamos, de seguida, todos os ficheiros auxiliares até agora criados (exceto o \textit{.nb}), assim como a pasta que os 
@@ -243,7 +243,11 @@ notebook
 A estratégia que criamos para a resolução do problema tem os seguintes problemas:
 
 \begin{itemize}
-  \item{Uso desnecessário de memória - asdasdfasdf}
+  \item{Uso desnecessário de memória - ao carregarmos todo o conteúdo do ficheiro para um buffer (ou seja, para uma String), estamos a carregar o ficheiro 
+  todo para a memória central, o que pode representar um problema se estivermos a lidar com ficheiros de grande dimensão, comprometendo desta forma a eficiência 
+  e, até, o funcionamento do programa.}
+  \item{Número de pipes - o número de pipes que criámos é superior àquele que utilizamos, pois contabilizamos dois para cada comando, apesar de apenas utilizarmos 
+  ambos quando o output de um comando é necessário para o input de outro.}
   \item{Possibilidade de bloqueio - asdasdasda}
 \end{itemize}
 
