@@ -193,8 +193,9 @@ $ ls -a
 A estratégia que criamos para a resolução do problema tem os seguintes problemas:
 
 \begin{itemize}
-  \item{Uso desnecessário de memória - asdasdfasdf}
+  \item{Uso desnecessário de memória - ao carregarmos todo o conteúdo do ficheiro para um buffer (ou seja, para uma String), estamos a carregar o ficheiro todo para a memória central, o que pode representar um problema se estivermos a lidar com ficheiros de grande dimensão,comprometendo desta forma a eficiência e, até, o funcionamento do programa.}
   \item{Possibilidade de bloqueio - asdasdasda}
+  \item{Número de pipes - o número de pipes que criámos é superior àquele que utilizamos, pois contabilizamos dois para cada comando, apesar de apenas utilizarmos ambos quando o output de um comando é necessário para o input de outro.}
 \end{itemize}
 
 O grupo também tem a noção de que a solução não é a ideal .............
