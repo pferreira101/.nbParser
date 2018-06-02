@@ -9,12 +9,10 @@ doc:
 	mv    latex ../doc/latex
 	mv    html ../doc/html
 	
-relatorio:
-	cd ../tex && pdflatex Relatorio.tex
-	mv ../tex/Relatorio.pdf ../Relatorio.pdf
 
 clean: 
 	rm -f notebook
+	rm -f Doxyfile.bak
 	rm -rf /tmp/notebook
 	rm -rf ../doc/latex
 	rm -rf ../doc/html
