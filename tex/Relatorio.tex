@@ -51,12 +51,13 @@
 \section{Introdução}
 \label{sec:intro}
 
-No contexto da Unidade Curricular Sistemas Operativos (SO), foi-nos proposto o desenvolvimento de um processador de \textit{Notebooks}. 
+No contexto da Unidade Curricular Sistemas Operativos (SO), foi-nos proposto o desenvolvimento de um processador de \textit{Notebooks} na linguagem \textit{C}. 
 Um \textit{Notebook} é um ficheiro de texto que mistura fragmentos de código, resultados de execução e documentação. 
-Este projeto foi desenvolvido na linguagem \textit{C}.
-Na secção \ref{sec:note} serão apresentadas as estratégias criadas pelo grupo para a concretização dos requisitos apresentados
-enquanto que na secção \ref{sec:funcionalidades} serão descritas pequenas funcionalidades do programa.
-Na secção \ref{sec:testes} serão apresentados \textit{notebooks} como exemplos e seus respetivos outputs.
+
+
+Na secção \ref{sec:note} serão apresentadas as estratégias criadas pelo grupo para a concretização dos requisitos apresentados.
+Nas subsecções \ref{sec:funcionalidades} e \ref{sec:testes}, serão, respetivamente, descritas pequenas funcionalidades do programa e 
+apresentados \textit{notebooks} como exemplos e seus respetivos outputs.
 Por fim, na secção \ref{sec:reflexao} será feita uma reflexão crítica sobre o desempenho da nossa solução e será discutida uma outra.
 
 
@@ -64,9 +65,10 @@ Por fim, na secção \ref{sec:reflexao} será feita uma reflexão crítica sobre
 \section{Processador de Notebook}
 \label{sec:note}
 
-Como já referido, um \textit{Notebook} é uma mistura de vários tipos de texto. Perante o enunciado proposto e, desde pronto, a pensar nas 
-\textit{Funcionalidades Avançadas} o grupo decidiu criar uma estrutura que guardasse os fragmentos de código (comandos) e todas as dependências entre si.
-Essa estrutura tem os seguintes campos: 
+Como já referido, um \textit{Notebook} é uma mistura de vários tipos de texto. Perante o enunciado proposto e, desde pronto, a pensar 
+nas \textit{Funcionalidades Avançadas} o grupo decidiu criar uma estrutura que guardasse os fragmentos de código (comandos) e todas as 
+dependências entre si.
+Essa estrutura tem a seguinte definição: 
 
 \begin{lstlisting}[caption=Definição da estrutura]
 typedef struct cmd{
@@ -80,12 +82,12 @@ typedef struct cmd{
 \end{lstlisting}
 
 \begin{itemize}
-  \item{text - corresponde à documentação do respetivo fragmento de código}
-  \item{cmd - fragmento de código a ser executado}
-  \item{full\_cmd - linha completa com comando}
-  \item{needs\_me - índices dos comandos que necessitam do output gerado por este comando}
-  \item{needs\_me\_len - número de elementos do vetor \textit{needs\_me}} 
-  \item{my\_input\_id - índice do input necessário para a execução deste comando}
+  \item{\texttt{text} - corresponde à documentação do respetivo fragmento de código}
+  \item{\texttt{cmd} - fragmento de código a ser executado}
+  \item{\texttt{full\_cmd} - linha completa com comando}
+  \item{\texttt{needs\_me} - índices dos comandos que necessitam do output gerado por este comando}
+  \item{\texttt{needs\_me\_len} - número de elementos do vetor \texttt{needs\_me}} 
+  \item{\texttt{my\_input\_id} - índice do input necessário para a execução deste comando}
 \end{itemize}
 
 
@@ -93,31 +95,39 @@ typedef struct cmd{
 \subsection{Estratégia}
 
 %% Fase inicial
-A nossa estratégia começa por carregar o ficheiro todo para memória, por razões de eficiência, em vez de estar a realizar várias leituras do mesmo, 
-e para facilitar o seu manuseamento. Após o seu carregamento completo para um buffer, fazemos o parser para a nossa estrutura de dados. 
-Esta estrutura permite de uma forma simples a execução dos comandos contidos no ficheiro - através da systemcall \textit{execvp} - assim como a reconstrução 
-do ficheiro original sem qualquer perda de dados. O parser é feito com o auxílio de várias funções como, por exemplo, a função \textit{getDependentNumber} 
-que, como requisito das \textit{Funcionalidades Avançadas}, atribui ao campo da estrutura \textit{my\_input\_id} o id relativo do output necessário para a 
-execução do comando.
+A nossa estratégia começa por carregar o ficheiro todo para memória, por razões de eficiência, em vez de estar a realizar várias 
+leituras do mesmo, e para facilitar o seu manuseamento. Após o seu carregamento completo para um buffer, fazemos o parser para a nossa 
+estrutura de dados. 
+
+
+Esta estrutura permite, de forma simples, a execução dos comandos contidos no ficheiro (através da systemcall \texttt{execvp}),
+assim como a reconstrução do ficheiro original sem qualquer perda de dados. O parser é feito com o auxílio de várias funções como, por 
+exemplo, a função \texttt {getDependentNumber} que, como requisito das \textit{Funcionalidades Avançadas}, atribui ao campo da 
+estrutura \texttt{my\_input\_id} o ID relativo do output necessário para a execução do comando.
 
 %% Fase de execução
-
+BLABLABLA
 
 %% Fase de escrita
+Após o carregamento e a execução concorrente dos comandos presentes no \textit{Notebook} passado como argumento, chega a fase de juntar os resultados de todos estes comandos ao \textit{Notebook}. Para tal, bastou-nos aceder a cada um dos ficheiros auxiliares e escrevê-los (com o \texttt{write}) num novo ficheiro \textit{.nb}, encadeando estes resultados com o texto já existente no ficheiro-argumento original, através dos delimitadores \texttt{>>>} e \texttt{<<<}. 
 
+Após este processo, com o novo \textit{Notebook} já pronto, foi apenas necessário substituir o ficheiro antigo por este, utilizando para isso a \textit{system call} \texttt{rename}. Para efeitos de limpeza, apagamos, de seguida, todos os ficheiros auxiliares até agora criados (exceto o \textit{.nb}), assim como a pasta que os continha, cujo \textit{path} é o seguinte: \texttt{/tmp/notebook}.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Funcionalidades}
 \label{sec:funcionalidades}
 
-O utilizador pode necessitar de um output que não é o que o comando anterior devolveu. Para isso o utilizador pode escrever '\$x|', em que \textit{x} é o
-número do output do \textit{x-ésimo} comando anterior. 
-Para que não existam demasiadas \textit{pré-condições} aquando da escrita do \textit{notebook}, decidimos que a documentação do comando não necessitava
-de ser apenas uma linha de texto.
+O utilizador pode necessitar de um output que não é o que o comando anterior devolveu. Para isso o utilizador pode escrever 
+\texttt{\$x|}, em que \textit{x} é o número do output do \textit{x-ésimo} comando anterior. 
+
+Para que não existam demasiadas \textit{pré-condições} aquando da escrita do \textit{notebook}, decidimos que a documentação do 
+comando não necessitava de ser apenas uma linha de texto.
 Estas funcionalidades serão demonstradas na secção \ref{sec:testes}.
-O utilizador pode interromper o programa a qualquer momento através da combinação \textit{Ctrl + C}. Esta interrupção faz com que o ficheiro não seja alterado.
-Para além disso, caso haja um erro o programa pára a sua execução e não altera o ficheiro.
+O utilizador pode interromper o programa a qualquer momento através da combinação \texttt{Ctrl + C}. Esta interrupção faz com que o 
+ficheiro não seja alterado.
+
+Para além disso, caso haja um erro, o programa para a sua execução e não altera o ficheiro.
 
 
 

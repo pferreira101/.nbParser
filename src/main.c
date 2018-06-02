@@ -467,47 +467,59 @@ int main (int argc, char* argv[]){
 			else 
 				dup2(pipeArray[PIPE_READ(nFilho)][0], 0);
 
-			dup2(pipeArray[PIPE_WRITE(nFilho)][1], 1);
+			if ((to_exec->needs_me_len) == 0) {
+				char output_file[100];
+				sprintf(output_file, "%scomando%d.txt", TMP_PATH, nFilho);
+				int output_des = open(output_file, O_RDWR | O_CREAT, 0666);
+
+				dup2(output_des, 1);
+
+				close(pipeArray[PIPE_WRITE(nFilho)][1]);
+			}
+
+			else dup2(pipeArray[PIPE_WRITE(nFilho)][1], 1);
+
 			execvp(to_exec->cmd[0], to_exec->cmd);
 			exit(-1);
 		}
 		else{
-
-			id = fork();
-			if(id == 0){
+			if (cmds[nFilho]->needs_me_len >0) {
+				id = fork();
+				if(id == 0){
 				char output_file[100];
-				sprintf(output_file, "%scomando%d.txt", TMP_PATH, nFilho);
-				int output_des = open(output_file, O_RDWR | O_CREAT, 0666);	
-				int to_send, n_read;
-				char* result_buffer = malloc(1024 * sizeof(char));
-				Comando to_exec = cmds[nFilho];
-				for(int i=0; i<n_cmds; i++){
-					if(i != nFilho) close(pipeArray[PIPE_WRITE(i)][0]);						
-					if(i != nFilho && elem(to_exec->needs_me, to_exec->needs_me_len, i) == 0)						
-						close(pipeArray[PIPE_READ(i)][1]); // fechar descritor de escrita porque nao vai ser preciso enviar resultado a este
+					sprintf(output_file, "%scomando%d.txt", TMP_PATH, nFilho);
+					int output_des = open(output_file, O_RDWR | O_CREAT, 0666);	
+					int to_send, n_read;
+					char* result_buffer = malloc(1024 * sizeof(char));
+					Comando to_exec = cmds[nFilho];
+					for(int i=0; i<n_cmds; i++){
+						if(i != nFilho) close(pipeArray[PIPE_WRITE(i)][0]);							
+						if(i != nFilho && elem(to_exec->needs_me, to_exec->needs_me_len, i) == 0)						
+							close(pipeArray[PIPE_READ(i)][1]); // fechar descritor de escrita porque nao vai ser preciso enviar resultado a este
 					
-					close(pipeArray[PIPE_WRITE(i)][1]);
-					close(pipeArray[PIPE_READ(i)][0]);
+						close(pipeArray[PIPE_WRITE(i)][1]);
+						close(pipeArray[PIPE_READ(i)][0]);
 
+					}
+					close(pipeArray[PIPE_READ(nFilho)][1]);
+
+ 					while((n_read = read(pipeArray[PIPE_WRITE(nFilho)][0], result_buffer, 1024)) > 0){
+							for(int i=0; i< to_exec->needs_me_len; i++){
+								to_send = to_exec->needs_me[i];
+								write(pipeArray[PIPE_READ(to_send)][1], result_buffer, n_read);
+							}
+							write(output_des, result_buffer, n_read);
+					}	
+
+					for(int i=0; i< to_exec->needs_me_len; i++){ // fechar os descritores para escrita
+						to_send = to_exec->needs_me[i];
+						close(pipeArray[PIPE_READ(to_send)][1]);
+					}
+
+					close(pipeArray[PIPE_WRITE(nFilho)][0]);
+					close(output_des);
+					exit(0);		
 				}
-				close(pipeArray[PIPE_READ(nFilho)][1]);
-
- 				while((n_read = read(pipeArray[PIPE_WRITE(nFilho)][0], result_buffer, 1024)) > 0){
-						for(int i=0; i< to_exec->needs_me_len; i++){
-							to_send = to_exec->needs_me[i];
-							write(pipeArray[PIPE_READ(to_send)][1], result_buffer, n_read);
-						}
-						write(output_des, result_buffer, n_read);
-				}	
-
-				for(int i=0; i< to_exec->needs_me_len; i++){ // fechar os descritores para escrita
-					to_send = to_exec->needs_me[i];
-					close(pipeArray[PIPE_READ(to_send)][1]);
-				}
-
-				close(pipeArray[PIPE_WRITE(nFilho)][0]);
-				close(output_des);
-				exit(0);		
 			}
 		}
 	}
