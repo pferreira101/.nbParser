@@ -13,21 +13,32 @@
 // Como cada processo tem dois pipes, assim sabemos qual o seu indice
 #define PIPE_READ(x) ((x)*2)
 #define PIPE_WRITE(x) ((x)*2 + 1)
+
+/** Path para a pasta temporária com os ficheiros auxiliares */
 #define TMP_PATH "/tmp/notebook/"
+/** String com o delimitador superior dos resultados */
 #define SUP_DELIM ">>>\n"
+/** String com o delimitador inferior dos resultados */
 #define INF_DELIM "<<<\n"
 
-// Estrutura para o parser do ficheiro
+/** 
+* @brief Estrutura para o parser do ficheiro
+*/
 typedef struct cmd{
-	char* text;
-	char** cmd;
-	char* full_cmd; // comando completo com $ e args
-	int* needs_me;
-	int needs_me_len;
-	int my_input_id;
+	char* text; /**< Texto do ficheiro antes de cada comando */
+	char** cmd; /**< Comando */ 
+	char* full_cmd; /**< Linha de comando tal como está no ficheiro .nb */
+	int* needs_me; /**< Lista de comandos que precisam do output deste comando */
+	int needs_me_len; /**< Número de comandos que precisam do output deste comando */
+	int my_input_id; /**< ID do comando para o input deste */
 }*Comando;
 
-// Funcao para inicializar uma variavel do tipo cmd
+
+/**
+* @brief Função para inicializar uma variavel do tipo cmd
+*
+* @return nova estrutura Comando
+*/
 Comando initComando(){
 	Comando new = malloc(sizeof(struct cmd));
 	new->text = NULL;
@@ -40,6 +51,11 @@ Comando initComando(){
 	return new;
 }
 
+/**
+* @brief Função para imprimir uma estrutura Comando
+*
+* @param cmd Estrutura a imprimir
+*/
 
 void printCMD(Comando cmd){
 	printf("Texto: %s\n", cmd->text);
@@ -52,11 +68,15 @@ void printCMD(Comando cmd){
 	
 }
 
-// Variável global com os pids dos filhos
+/** Variável global com os pids dos filhos */
 int* son_pids = NULL;
+/** Número de filhos inicial */
 int son_pids_len = 0;
 
-// Ctrl + C
+
+/**
+* @brief Função que permite cancelar o programa através do Ctrl-C
+*/
 void interrupt(int x){
 	printf("\nProcessamento cancelado pelo utilizador.\n");
 	for(int i = 0; i < son_pids_len; i++){
@@ -65,7 +85,10 @@ void interrupt(int x){
 	exit(-1);
 }
 
-// Quando ocorre um erro
+/**
+* @brief Função que permite cancelar o programa quando ocorrem erros neste
+*/
+
 void error(int x){
 	printf("\nProcessamento cancelado devido a erro\n");
 	for(int i = 0; i < son_pids_len; i++){
@@ -74,6 +97,14 @@ void error(int x){
 	exit(-2);
 }
 
+/**
+* @brief Função que duplica uma string para outra nova
+*
+* @param string String a duplicar 
+* @param n_chars Número de caracteres da String
+*
+* @return Nova string duplicada
+*/
 
 char* mystrndup(char* string, int n_chars){
   char* result;
@@ -89,7 +120,16 @@ char* mystrndup(char* string, int n_chars){
   return result;
 }
 
-// Funcao para ver se o processo que faz redirecionamento do output pode fechar um descritor ou nao
+/**
+* @brief Funcao para ver se o processo que faz redirecionamento do output pode fechar um descritor ou nao
+* Funciona como um elem, isto é, verifica se um determinado N está contido numa lista de N's
+*
+* @param needs_me Lista de Comandos que precisam do output de comando em questão
+* @param needs_me_len Tamanho da lista needs_me
+* @param n ID do comando a verificar
+*
+* @return 0 se puder fechar (o ID não está na lista), 1 caso contrário
+*/
 int elem(int* needs_me, int needs_me_len, int n){
 	for(int i=0; i<needs_me_len; i++)
 		if(n == needs_me[i])
@@ -98,7 +138,19 @@ int elem(int* needs_me, int needs_me_len, int n){
     return 0;
 }
 
-// Auxiliares ao parser
+
+
+// AUX PARSER
+
+
+
+/**
+* @brief Função que permite verificar qual o ID do comando de que certo comando precisa
+*
+* @param str Linha de comando a analisar
+*
+* @return ID do comando de que depende
+*/
 
 int getDependentNumber(char* str){
 	char* aux = malloc(strlen(str));
@@ -117,7 +169,13 @@ int getDependentNumber(char* str){
 	return r;
 }
 
-
+/**
+* @brief Função que permite analisar uma linha de código, tratando os argumentos
+*
+* @param cmd_line Linha de comando a analisar
+*
+* @return Lista de Strings com o comando e os seus argumentos separados
+*/
 char** transformCmdLine(char* cmd_line){
 	int n_args = 0, n, i , j, first_alpha;
 
@@ -143,7 +201,15 @@ char** transformCmdLine(char* cmd_line){
   	return cmd_args;
 }
 
-
+/**
+* @brief Função que permite adicionar um inteiro a um array
+*
+* @param v Array
+* @param n Tamanho do Array
+* @param x Elemento que se pretende introduzir no Array
+*
+* @return Array com o inteiro já inserido
+*/
 int* addToArray(int* v, int n, int x){
 	int* aux = malloc((n+1)*sizeof(int));
 
@@ -158,8 +224,17 @@ int* addToArray(int* v, int n, int x){
 
 
 
-// Parser para a estrutura
+// PARSER
 
+
+
+/**
+* @brief Função que faz o parser do ficheiro, carregando os dados para a estrutura por nós definida
+*
+* @param cmds Apontador para a estrutura para a qual queremos carregar a informação
+* @param file String com o conteúdo do ficheiro
+* @param fileSize Tamanho do ficheiro (em Bytes)
+*/
 void loadCmds(Comando* cmds, char* file, int fileSize){
 	int cmd_id = 0;
 	int i=0;
@@ -208,8 +283,13 @@ void loadCmds(Comando* cmds, char* file, int fileSize){
 }
 
 
-
-
+/**
+* @brief Função que nos permite saber qual o número de comandos existente num ficheiro
+*
+* @param file String com todo o conteúdo do ficheiro
+*
+* @return Número de comandos existente
+*/
 int getNumOfCmds(char* file){
 	char buffer[50]; 
 	int id1, id2, pd1[2], pd2[2], numCmds;
@@ -266,7 +346,18 @@ int getNumOfCmds(char* file){
 }
 
 
- 
+
+// MAIN
+
+
+
+/**
+* @brief Função main que realiza o parser do ficheiro e o seu processamento
+*
+* @param argc Número de argumentos
+*
+* @return argv Lista de argumentos
+*/  
 int main (int argc, char* argv[]){
 	signal(SIGINT, interrupt);
 	signal(SIGALRM, error);
