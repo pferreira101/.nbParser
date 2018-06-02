@@ -272,7 +272,7 @@ void loadCmds(Comando* cmds, char* file, int fileSize){
 		int j;
 
 		// Le uma linha
-		for(j = 0; file[i] != '\0' && file[i] != '\n' ; i++, j++) line[j] = file[i];
+		for(j = 0; file[i] != '\0' && file[i] != '\n'; i++, j++) line[j] = file[i];
 		i++; // para avancar \n
 
 		if(j==0) break;
@@ -280,7 +280,7 @@ void loadCmds(Comando* cmds, char* file, int fileSize){
 
 
 		// É texto
-		if((line[0]) != '$' ){ 
+		if((line[0]) != '$'){ 
 			// se tiver encontrado um resultado deve ignorar
 			if(!strcmp(line, SUP_DELIM)){
 				do{ 
@@ -291,7 +291,16 @@ void loadCmds(Comando* cmds, char* file, int fileSize){
 
 			}
 			else{ // caso tenha encontrado uma linha de texto guarda-a
-				cmds[cmd_id]->text = strdup(line);
+				if(cmds[cmd_id]->text != NULL){
+					char* new_line = malloc(strlen(cmds[cmd_id]->text) + strlen(line) + 3);
+					strcat(new_line, cmds[cmd_id]->text);
+					strcat(new_line, "\n");
+					strcat(new_line, line);
+
+					cmds[cmd_id]->text = new_line;
+				}
+				else cmds[cmd_id]->text = strdup(line);
+				
 			}
 		}
 		// É comando
@@ -393,7 +402,7 @@ int main (int argc, char* argv[]){
 		return -1;
 	}
 
-	int nFilho = 0;
+	int nFilhoExec = 0, nFilhosCriados = 0;
 	char *path = argv[1];	
 	char *buffer;
 	int n_cmds = getNumOfCmds(argv[1]);
@@ -440,9 +449,12 @@ int main (int argc, char* argv[]){
 	int pipeArray[n_cmds*2][2];
 	for(int i=0; i < n_cmds*2; i++) pipe(pipeArray[i]);
 
-
-	for(nFilho =0; nFilho < n_cmds; nFilho++){
-
+	
+	for(nFilhoExec =0; nFilhoExec < n_cmds; nFilhoExec++){
+		Comando to_exec = cmds[nFilhoExec];
+		
+		if(!to_exec->cmd) break; 
+		
 		int id = fork();
 
 		// Adiciona o pid do filho ao array global que guarda todos os pids dos filhos
@@ -450,60 +462,60 @@ int main (int argc, char* argv[]){
 		son_pids_len++;
 
 		if(id == 0){
-			Comando to_exec = cmds[nFilho];
+	
 
 			for(int i=0; i<n_cmds; i++){
 				close(pipeArray[PIPE_READ(i)][1]);
 				close(pipeArray[PIPE_WRITE(i)][0]);
 
-				if(i != nFilho){ 
+				if(i != nFilhoExec){ 
 					close(pipeArray[PIPE_READ(i)][0]);
 					close(pipeArray[PIPE_WRITE(i)][1]);
 				}					
 			}
 
 			if(to_exec->my_input_id == -1) // teste se precisa de resultado de outro comando
-				close(pipeArray[PIPE_READ(nFilho)][0]);  // se nao precisar fecha
+				close(pipeArray[PIPE_READ(nFilhoExec)][0]);  // se nao precisar fecha
 			else 
-				dup2(pipeArray[PIPE_READ(nFilho)][0], 0);
+				dup2(pipeArray[PIPE_READ(nFilhoExec)][0], 0);
 
 			if ((to_exec->needs_me_len) == 0) {
 				char output_file[100];
-				sprintf(output_file, "%scomando%d.txt", TMP_PATH, nFilho);
+				sprintf(output_file, "%scomando%d.txt", TMP_PATH, nFilhoExec);
 				int output_des = open(output_file, O_RDWR | O_CREAT, 0666);
 
 				dup2(output_des, 1);
 
-				close(pipeArray[PIPE_WRITE(nFilho)][1]);
+				close(pipeArray[PIPE_WRITE(nFilhoExec)][1]);
 			}
 
-			else dup2(pipeArray[PIPE_WRITE(nFilho)][1], 1);
+			else dup2(pipeArray[PIPE_WRITE(nFilhoExec)][1], 1);
 
 			execvp(to_exec->cmd[0], to_exec->cmd);
 			exit(-1);
 		}
 		else{
-			if (cmds[nFilho]->needs_me_len >0) {
+			nFilhosCriados++;
+			if (to_exec->needs_me_len >0) {
 				id = fork();
 				if(id == 0){
 				char output_file[100];
-					sprintf(output_file, "%scomando%d.txt", TMP_PATH, nFilho);
+					sprintf(output_file, "%scomando%d.txt", TMP_PATH, nFilhoExec);
 					int output_des = open(output_file, O_RDWR | O_CREAT, 0666);	
 					int to_send, n_read;
 					char* result_buffer = malloc(1024 * sizeof(char));
-					Comando to_exec = cmds[nFilho];
 					for(int i=0; i<n_cmds; i++){
-						if(i != nFilho) close(pipeArray[PIPE_WRITE(i)][0]);							
-						if(i != nFilho && elem(to_exec->needs_me, to_exec->needs_me_len, i) == 0)						
+						if(i != nFilhoExec) close(pipeArray[PIPE_WRITE(i)][0]);							
+						if(i != nFilhoExec && elem(to_exec->needs_me, to_exec->needs_me_len, i) == 0)						
 							close(pipeArray[PIPE_READ(i)][1]); // fechar descritor de escrita porque nao vai ser preciso enviar resultado a este
 					
 						close(pipeArray[PIPE_WRITE(i)][1]);
 						close(pipeArray[PIPE_READ(i)][0]);
 
 					}
-					close(pipeArray[PIPE_READ(nFilho)][1]);
+					close(pipeArray[PIPE_READ(nFilhoExec)][1]);
 
- 					while((n_read = read(pipeArray[PIPE_WRITE(nFilho)][0], result_buffer, 1024)) > 0){
+ 					while((n_read = read(pipeArray[PIPE_WRITE(nFilhoExec)][0], result_buffer, 1024)) > 0){
 							for(int i=0; i< to_exec->needs_me_len; i++){
 								to_send = to_exec->needs_me[i];
 								write(pipeArray[PIPE_READ(to_send)][1], result_buffer, n_read);
@@ -516,10 +528,11 @@ int main (int argc, char* argv[]){
 						close(pipeArray[PIPE_READ(to_send)][1]);
 					}
 
-					close(pipeArray[PIPE_WRITE(nFilho)][0]);
+					close(pipeArray[PIPE_WRITE(nFilhoExec)][0]);
 					close(output_des);
 					exit(0);		
 				}
+				else nFilhosCriados++;
 			}
 		}
 	}
@@ -534,10 +547,11 @@ int main (int argc, char* argv[]){
 	}
 
 
-	for(int i = 0; i<n_cmds*2;  i++){
+	for(int i = 0; i<nFilhosCriados;  i++){
 		wait(NULL);
 	}
 	kill(check_error, SIGKILL);
+
 	char aux;
 	if(read(f_error, &aux, 1) != 0) interrupt(1);
 	else close(f_error);
@@ -576,7 +590,7 @@ int main (int argc, char* argv[]){
 	// substituir .nb original pelo novo com os resultados
 	rename("result.nb", argv[1]);
 
-	removeFicheirosAuxiliares(nFilho);
+	removeFicheirosAuxiliares(nFilhoExec);
 	
 	return 0;
 }
