@@ -287,12 +287,6 @@ int main (int argc, char* argv[]){
 		cmds[i] = initComando();
 
 
-	// Muda o descritor do std_error
-	int f_error = open("/tmp/notebook/error.txt", O_CREAT | O_RDWR, 0666);
-	if(f_error<0) exit(-1);
-	dup2(f_error, 2);
-
-
 	// Abrir ficheiro
 	int file = open(path, O_RDWR); //abrir ficheiro
 	int fileSize=0;
@@ -301,8 +295,6 @@ int main (int argc, char* argv[]){
 		printf("Não existe o ficheiro\n");
 		return -1;
 	}
-
-
 
 
 	//sleep(10); // apenas para testar o sinal
@@ -320,6 +312,12 @@ int main (int argc, char* argv[]){
 
 	close(file);	
 
+	// Muda o descritor do std_error
+	int f_error = open("/tmp/notebook/error.txt", O_CREAT | O_RDWR, 0666);
+	if(f_error<0) exit(-1);
+	dup2(f_error, 2);
+
+	
 	// Parser do ficheiro para a estrutura
 	loadCmds(cmds, buffer, fileSize);
 

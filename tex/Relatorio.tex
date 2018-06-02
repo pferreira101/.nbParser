@@ -1,12 +1,19 @@
 \documentclass[a4paper]{article}
 
 \usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc} 
 \usepackage[portuges]{babel}
 \usepackage{a4wide}
 \usepackage{graphicx}
 \usepackage{listings}
 \usepackage{caption}
 \usepackage{subcaption}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{multicol}
+\usepackage{listingsutf8}
+
+
 \title{Projeto de Sistemas Operativos\\Grupo 20}
 \author{Henrique Pereira (a80261) \and Pedro Moreira (a82364) \and Pedro Ferreira (a81135) }
 
@@ -21,7 +28,7 @@
   showstringspaces=false,
   basicstyle=\footnotesize\ttfamily,
   keywordstyle=\bfseries\color{green!40!black},
-  morekeywords={GArray,GHashTable,GTree,STR_pair,LONG_list,LONG_pair,USER,TCD_community, User,Post, Tag},keywordstyle=\bfseries\color{green!40!black},
+  morekeywords={Comando},keywordstyle=\bfseries\color{green!40!black},
   commentstyle=\itshape\color{gray},
   stringstyle=\color{orange},
 }
@@ -47,8 +54,10 @@
 No contexto da Unidade Curricular Sistemas Operativos (SO), foi-nos proposto o desenvolvimento de um processador de \textit{Notebooks}. 
 Um \textit{Notebook} é um ficheiro de texto que mistura fragmentos de código, resultados de execução e documentação. 
 Este projeto foi desenvolvido na linguagem \textit{C}.
-Na secção \ref{sec:note} serão apresentadas as estratégias criadas pelo grupo para a concretização dos requisitos apresentados.
-Na secção \ref{sec:reflexao} será feita uma reflexão crítica sobre o desempenho da nossa solução e será discutida uma outra.
+Na secção \ref{sec:note} serão apresentadas as estratégias criadas pelo grupo para a concretização dos requisitos apresentados
+enquanto que na secção \ref{sec:funcionalidades} serão descritas pequenas funcionalidades do programa.
+Na secção \ref{sec:testes} serão apresentados \textit{notebooks} como exemplos e seus respetivos outputs.
+Por fim, na secção \ref{sec:reflexao} será feita uma reflexão crítica sobre o desempenho da nossa solução e será discutida uma outra.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -59,17 +68,111 @@ Como já referido, um \textit{Notebook} é uma mistura de vários tipos de texto
 \textit{Funcionalidades Avançadas} o grupo decidiu criar uma estrutura que guardasse os fragmentos de código (comandos) e todas as dependências entre si.
 Essa estrutura tem os seguintes campos: 
 
-%%%% CODIGO BONITINHO DA ESTRUTURA
+\begin{lstlisting}[caption=Definição da estrutura]
+typedef struct cmd{
+    char* text;
+    char** cmd;
+    char* full_cmd; 
+    int* needs_me;
+    int needs_me_len;
+    int my_input_id;
+}*Comando;
+\end{lstlisting}
 
 \begin{itemize}
   \item{text - corresponde à documentação do respetivo fragmento de código}
   \item{cmd - fragmento de código a ser executado}
-  \item{needsme - índices dos comandos que necessitam do output gerado por este comando} %% NÃO DÁ COM _ NO NOME
-  \item{needsmelen - } %% É PRECISO ESTE?
-  \item{myinputid - índice do input necessário para a execução deste comando}
+  \item{full\_cmd - linha completa com comando}
+  \item{needs\_me - índices dos comandos que necessitam do output gerado por este comando}
+  \item{needs\_me\_len - número de elementos do vetor \textit{needs\_me}} 
+  \item{my\_input\_id - índice do input necessário para a execução deste comando}
 \end{itemize}
 
-%% Falar que a estratégia passa pelo carregamento do ficheiro para um buffer, parser para a estrutura bla bla bla...	
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Estratégia}
+
+%% Fase inicial
+A nossa estratégia começa por carregar o ficheiro todo para memória, por razões de eficiência, em vez de estar a realizar várias leituras do mesmo, 
+e para facilitar o seu manuseamento. Após o seu carregamento completo para um buffer, fazemos o parser para a nossa estrutura de dados. 
+Esta estrutura permite de uma forma simples a execução dos comandos contidos no ficheiro - através da systemcall \textit{execvp} - assim como a reconstrução 
+do ficheiro original sem qualquer perda de dados. O parser é feito com o auxílio de várias funções como, por exemplo, a função \textit{getDependentNumber} 
+que, como requisito das \textit{Funcionalidades Avançadas}, atribui ao campo da estrutura \textit{my\_input\_id} o id relativo do output necessário para a 
+execução do comando.
+
+%% Fase de execução
+
+
+%% Fase de escrita
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Funcionalidades}
+\label{sec:funcionalidades}
+
+O utilizador pode necessitar de um output que não é o que o comando anterior devolveu. Para isso o utilizador pode escrever '\$x|', em que \textit{x} é o
+número do output do \textit{x-ésimo} comando anterior. 
+Para que não existam demasiadas \textit{pré-condições} aquando da escrita do \textit{notebook}, decidimos que a documentação do comando não necessitava
+de ser apenas uma linha de texto.
+Estas funcionalidades serão demonstradas na secção \ref{sec:testes}.
+O utilizador pode interromper o programa a qualquer momento através da combinação \textit{Ctrl + C}. Esta interrupção faz com que o ficheiro não seja alterado.
+Para além disso, caso haja um erro o programa pára a sua execução e não altera o ficheiro.
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Testes}
+\label{sec:testes}
+
+%% Exemplo 1
+\begin{lstlisting}[caption=1º Exemplo]
+Este comando lista os ficheiros:
+$ ls
+Agora podemos ordenar estes ficheiros:
+$| sort
+E escolher o primeiro:
+$| head -1
+\end{lstlisting}
+
+%% Resultado 1
+\begin{lstlisting}[caption=Resultado do 1º Exemplo]
+
+\end{lstlisting}
+
+
+%% Exemplo 2
+\begin{lstlisting}[caption=2º Exemplo]
+Este comando imprime a diretoria corrente:
+$ pwd
+E podemos contar o tamanho em palavras:
+$| wc -w
+Ou podemos contar o tamanho em carateres:
+$2| wc -c
+\end{lstlisting}
+
+%% Resultado 2
+
+\begin{lstlisting}[caption=Resultado do 2º Exemplo]
+
+\end{lstlisting}
+
+
+%% Exemplo 3
+\begin{lstlisting}[caption=3º Exemplo]
+Bom dia,
+Apresento o meu exemplo de notebook:
+Para listar todo o conteudo duma diretoria:
+$ ls -a
+\end{lstlisting}
+
+%% Resultado 3
+
+\begin{lstlisting}[caption=Resultado do 3º Exemplo]
+
+\end{lstlisting}
+
 
 
 

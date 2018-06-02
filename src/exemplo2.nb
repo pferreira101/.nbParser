@@ -1,0 +1,4 @@
+Bom dia,
+Apresento o meu exemplo de notebook:
+Para listar todo o conteudo duma diretoria:
+$ ls -a

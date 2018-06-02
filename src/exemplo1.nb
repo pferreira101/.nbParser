@@ -1,4 +1,6 @@
-Este comando lista os ficheiros:
-$ ls
-asd
-$ ls
+Este comando imprime a diretoria corrente:
+$ pwd
+E podemos contar o tamanho em palavras:
+$| wc -w
+Ou podemos contar o tamanho em carateres:
+$2| wc -c
