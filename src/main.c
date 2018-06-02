@@ -18,24 +18,35 @@
 #define INF_DELIM "<<<\n"
 
 // Estrutura para o parser do ficheiro
-struct cmd{
-	int id; // será preciso ou basta o indice?
+typedef struct cmd{
 	char* text;
 	char** cmd;
 	char* full_cmd; // comando completo com $ e args
 	int* needs_me;
 	int needs_me_len;
 	int my_input_id;
-};
+}*Comando;
 
-void printCMD(struct cmd *Cmd, int x){
-	printf("COMMAND %d:\n", x);
+// Funcao para inicializar uma variavel do tipo cmd
+Comando initComando(){
+	Comando new = malloc(sizeof(struct cmd));
+	new->text = NULL;
+	new->cmd = NULL;
+	new->full_cmd = NULL;
+	new->needs_me = NULL;
+	new->needs_me = 0;
+	new->my_input_id = -1;
 
-	printf("Texto: %s\n", Cmd[x].text);
-	printf("Preciso do: %d\n", Cmd[x].my_input_id);
+	return new;
+}
+
+
+void printCMD(Comando cmd){
+	printf("Texto: %s\n", cmd->text);
+	printf("Preciso do: %d\n", cmd->my_input_id);
 
 	printf("Precisa de mim: ");
-	for(int i = 0; i<Cmd[x].needs_me_len; i++) printf("%d, ", Cmd[x].needs_me[i]);
+	for(int i = 0; i<cmd->needs_me_len; i++) printf("%d, ", cmd->needs_me[i]);
 	printf("\n*********************\n");
 
 	
@@ -52,12 +63,21 @@ void interrupt(int x){
 	//falta matar filhos
 }
 
-char * mystrdup (const char *s) {
-    if(s == NULL) return NULL;          
-    char *d = malloc (strlen (s) + 1); 
-    if (d == NULL) return NULL;       
-    strcpy (d,s);                    
-    return d;                       
+char *	mystrndup (char* string, int n_chars){
+  char *result;
+
+  int len = strlen(string);
+
+  if(n_chars < len)
+    len = n_chars;
+
+  result = malloc(len + 1);
+
+  memcpy (result, string, len);
+
+  result[len] = '\0';
+
+  return result;
 }
 
 // Funcao para ver se o processo que faz redirecionamento do output pode fechar um descritor ou nao
@@ -72,39 +92,21 @@ int elem(int* needs_me, int needs_me_len, int n){
 // Auxiliares ao parser
 
 int getDependentNumber(char* str){
-	char* aux = malloc(sizeof(str));
+	char* aux = malloc(strlen(str));
 	int i;
 
 	if(str[1] == ' ') return -1; // "$  cmd"
-	if(str[1] == '|') return 1; // obrigaga a que o texto seja escrito com a regra "$|" 
+	if(str[1] == '|') return 1; // obriga a que o texto seja escrito com a regra "$|" 
 	
-	for(i = 1; !isalpha(str[i]) && str[i] != '|'; i++){
+	for(i = 1;  str[i] != '|'; i++){
 		aux[i-1] = str[i];
 	}
 	aux[i] = '\n';
-
+	// ***** testar com \0 para ver se nao rebenta
 	int r = atoi(aux);
-	if(r == 0) return -1; // para distinguir do primeiro comando
+
 	return r;
 }
-
-
-char* getCmd(char* cmd){
-	int i, j;
-		printf("got here\n");
-
-	char* r = malloc(sizeof(cmd));
-
-	
-	for(j = 0, i = i; cmd[i] != '\n'; i++, j++){
-		r[j] = cmd[i];
-	}
-
-	r[j] = '\0';
-	printf("got here\n");
-	return r;
-}
-
 
 
 char** transformCmdLine(char* cmd_line){
@@ -122,12 +124,11 @@ char** transformCmdLine(char* cmd_line){
 
 	i = 0;
 	char* token; 
-
+	printf("%d\n", n_args);
   	token = strtok (cmd_line + first_alpha," ");
-
+  	int j=0;
   	while(token != NULL){
    		cmd_args[i++] = strdup(token);
-   		printf("%s\n", token);
     	token = strtok (NULL, " ");
   	}
   	
@@ -151,61 +152,49 @@ int* addNeedsMe(int* needs_me, int n, int x){
 
 // Parser para a estrutura
 
-void loadCmds(struct cmd *cmds, char* file, int fileSize){
+void loadCmds(Comando* cmds, char* file, int fileSize){
 	int cmd_id = 0;
-
+	int i=0;
 	char* line = malloc(sizeof(char)*fileSize);
 
 	// Analisa o ficheiro todo
-	for(int i = 0; file[i] != '\0'; i++){
+	while(file[i] != '\0'){
 		// Analisa linha a linha - Sabemos que estamos a iniciar uma linha nova no inicio do ciclo	
 		int j;
 
+		// le uma linha
+		for(j = 0; file[i] != '\0' && file[i] != '\n' ; i++, j++) line[j] = file[i];
+		i++; // para avancar \n 
+		line[j] = '\n';			
+		line[j+1] = '\0';
+		printf("%s\n", line);
 		// É texto
-		if(isalpha(file[i])){ 
-			for(j = 0; file[i] != '\n' && file[i] != '\0'; i++, j++) line[j] = file[i];
-			
-			line[j] = '\0';
-			cmds[cmd_id].text = strdup(line);
+		if((line[0]) != '$' ){ 
+			// se tiver encontrado um resulado, deve ignorar
+			if(!strcmp(line, SUP_DELIM)){
+				do{ 
+					while(file[i] != '\0' && file[i] != '\n') line[j++] = file[i++];
+					line[j]='\n'; line[j+1]='\0';
+				}while(!strcmp(line, INF_DELIM));
 
-			/* Debugging */ printf("Texto: %s\n", cmds[cmd_id].text);
-			/* Debugging */ printf("Processou texto\n");
-		}
-
-		// É comando
-		else if(file[i] == '$'){ 
-			for(j = 0; file[i] != '\n' && file[i] != '\0'; i++, j++) {
-				line[j] = file[i];
 			}
-
-			line[j] = '\0';
-			/* Debugging */ printf("Linha com comando: %s\n", line);
-
+			else{ // caso tenha encontrado uma linha de texto guarda-o
+				cmds[cmd_id]->text = strdup(line);
+			}
+		}
+				// É comando
+		else if(line[0] == '$'){ 
+			printf("%s\n", line);
+			cmds[cmd_id]->full_cmd = strdup(line);			
+			cmds[cmd_id]->cmd = transformCmdLine(line);
 			int x = getDependentNumber(line);
-			/* Debugging */ //printf("Depende do comando %d (%d comandos atrás)\n", cmd_id-x, x);
+			if(x >= 0) cmds[cmd_id]->my_input_id = cmd_id - x;
 
-			cmds[cmd_id].full_cmd = strdup(line);			
-			cmds[cmd_id].cmd = transformCmdLine(line);
-
-			cmds[cmd_id - x].needs_me_len=0;
-			if(x >= 0) cmds[cmd_id].my_input_id = cmd_id - x;
-			else cmds[cmd_id].my_input_id = -1;
 			if(x != -1){
-				cmds[cmd_id - x].needs_me = addNeedsMe(cmds[cmd_id - x].needs_me, cmds[cmd_id - x].needs_me_len, cmd_id);
-				cmds[cmd_id - x].needs_me_len++;
+				cmds[cmd_id - x]->needs_me = addNeedsMe(cmds[cmd_id - x]->needs_me, cmds[cmd_id - x]->needs_me_len, cmd_id);
+				cmds[cmd_id - x]->needs_me_len++;
 			}
-			printf("%d\n", cmds[cmd_id - x].needs_me_len);
-			cmd_id++;
-			/* Debugging */ printf("Processou comando\n");
 		}
-
-		// É resultado de comando ">>>" ... "<<<" (ignora apenas)
-		else if(file[i] == '>'){ 
-			while(file[i-1] != '<' && file[i] != '\n' && file[i] != '\0') i++; // MUDAR - !(file[i-1] == '<' && file[i] == '\n') dá segf
-			/* Debugging */ printf("Processou resultado\n");
-		}
-
-		/* Debugging */ printf("****************************Processou uma linha****************************\n\n");		
 	}
 }
 
@@ -283,7 +272,9 @@ int main (int argc, char* argv[]){
 	
 	int n_cmds = getNumOfCmds(argv[1]);
 	
-	struct cmd *cmds = malloc(sizeof(struct cmd)*n_cmds);
+	Comando cmds[n_cmds];
+	for(int i=0; i<n_cmds; i++)
+		cmds[i] = initComando();
 
 	int file = open(path, O_RDWR); //abrir ficheiro
 	int fileSize=0;
@@ -299,22 +290,17 @@ int main (int argc, char* argv[]){
 	struct stat st; 
 	if (stat(path, &st) != -1) {
 		fileSize = st.st_size; // em bytes
-		//printf("ficheiro: %d bytes\n", fileSize);
 		buffer = malloc(fileSize);
 	}
 
 	// Carregar ficheiro para string Buffer
-	while(read(file, buffer, fileSize)>0); 
-	
+	while(read(file, buffer, fileSize)>0);
+
 	close(file);	
 
 	// Parser do ficheiro para a estrutura
 	loadCmds(cmds, buffer,fileSize);
 
-	/* Debugging */
-	for(int i = 0; i<n_cmds; i++){
-		printCMD(cmds, i);
-	}	
 
 	// Cria 2*n_cmds pipes
 	int pipeArray[n_cmds*2][2];
@@ -326,7 +312,7 @@ int main (int argc, char* argv[]){
 		int id = fork();
 
 		if(id == 0){
-			struct cmd to_exec = cmds[nFilho];
+			Comando to_exec = cmds[nFilho];
 
 			for(int i=0; i<n_cmds; i++){
 				close(pipeArray[PIPE_READ(i)][1]);
@@ -338,14 +324,14 @@ int main (int argc, char* argv[]){
 				}					
 			}
 
-			if(to_exec.my_input_id == -1) // teste se precisa de resultado de outro comando
+			if(to_exec->my_input_id == -1) // teste se precisa de resultado de outro comando
 				close(pipeArray[PIPE_READ(nFilho)][0]);  // se nao precisar fecha
 			else 
 				dup2(pipeArray[PIPE_READ(nFilho)][0], 0);
 
 			dup2(pipeArray[PIPE_WRITE(nFilho)][1], 1);
 
-			execvp(to_exec.cmd[0], to_exec.cmd);
+			execvp(to_exec->cmd[0], to_exec->cmd);
 			exit(-1);
 		}
 		else{
@@ -357,10 +343,10 @@ int main (int argc, char* argv[]){
 				int output_des = open(output_file, O_RDWR | O_CREAT, 0666);  	
 				int to_send, n_read;
 				char* result_buffer = malloc(1024 * sizeof(char));
-				struct cmd to_exec = cmds[nFilho];
+				Comando to_exec = cmds[nFilho];
 				for(int i=0; i<n_cmds; i++){
 					if(i != nFilho) close(pipeArray[PIPE_WRITE(i)][0]);						
-					if(i != nFilho && elem(to_exec.needs_me, to_exec.needs_me_len, i) == 0)						
+					if(i != nFilho && elem(to_exec->needs_me, to_exec->needs_me_len, i) == 0)						
 						close(pipeArray[PIPE_READ(i)][1]); // fechar descritor de escrita porque nao vai ser preciso enviar resultado a este
 					
 					close(pipeArray[PIPE_WRITE(i)][1]);
@@ -370,15 +356,15 @@ int main (int argc, char* argv[]){
 				close(pipeArray[PIPE_READ(nFilho)][1]);
 
  				while((n_read = read(pipeArray[PIPE_WRITE(nFilho)][0], result_buffer, 1024)) > 0){
-						for(int i=0; i< to_exec.needs_me_len; i++){
-							to_send = to_exec.needs_me[i];
+						for(int i=0; i< to_exec->needs_me_len; i++){
+							to_send = to_exec->needs_me[i];
 							write(pipeArray[PIPE_READ(to_send)][1], result_buffer, n_read);
 						}
 						write(output_des, result_buffer, n_read);
 				}	
 
-				for(int i=0; i< to_exec.needs_me_len; i++){ // fechar os descritores para escrita
-					to_send = to_exec.needs_me[i];
+				for(int i=0; i< to_exec->needs_me_len; i++){ // fechar os descritores para escrita
+					to_send = to_exec->needs_me[i];
 					close(pipeArray[PIPE_READ(to_send)][1]);
 				}
 
@@ -399,25 +385,25 @@ int main (int argc, char* argv[]){
 	for(int i = 0; i<n_cmds*2;  i++){
 		wait(NULL);
 	}
-	
+
 	// escrita final: conquer
 	int n_read;
 	int fid = open(argv[1],O_TRUNC | O_WRONLY,0666);
 	
 	for (int i=0; i<n_cmds; i++) {
-		write(fid,cmds[i].text,strlen(cmds[i].text));
+		write(fid,cmds[i]->text,strlen(cmds[i]->text));
 		write(fid,"\n",1);
-		write(fid,cmds[i].full_cmd,strlen(cmds[i].full_cmd));
+		write(fid,cmds[i]->full_cmd,strlen(cmds[i]->full_cmd));
 		write(fid,"\n",1);
 
 		char res_buf;
 
 		char output_file[0];
 		sprintf(output_file, "%scomando%d.txt", FAUX_PATH, i);
-		int output_src = open(output_file, O_RDWR | O_CREAT, 0666);
+		int output_src = open(output_file, O_RDONLY);
 
 		write(fid,SUP_DELIM,4);
-		while(n_read=read(output_src,&res_buf,1)>0){
+		while((n_read=read(output_src,&res_buf,1))>0){
 			write(fid,&res_buf,n_read);
 		}
 		write(fid,INF_DELIM,4);
