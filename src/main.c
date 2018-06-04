@@ -224,7 +224,6 @@ char** transformCmdLine(char* cmd_line){
 	i=0;
   	while(token != NULL){
    		cmd_args[i++] = strdup(token);
-   		printf("%s\n", token);
     	token = strtok (NULL, " ");
   	}
 

@@ -1,0 +1,27 @@
+Este comando lista os ficheiros:
+$ ls -l
+>>>
+exemplo3.nb
+exemplo.nb
+notebook
+Makefile
+main.c
+exemplo1.nb
+exemplo2.nb
+<<<
+Agora podemos ordenar estes ficheiros:
+$| sort
+>>>
+exemplo1.nb
+exemplo2.nb
+exemplo3.nb
+exemplo.nb
+main.c
+Makefile
+notebook
+<<<
+E escolher o primeiro:
+$| head -1
+>>>
+exemplo1.nb
+<<<

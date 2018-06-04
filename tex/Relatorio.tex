@@ -58,7 +58,7 @@ Um \textit{Notebook} é um ficheiro de texto que mistura fragmentos de código, 
 Na secção \ref{sec:note} serão apresentadas as estratégias criadas pelo grupo para a concretização dos requisitos apresentados.
 Nas subsecções \ref{sec:funcionalidades} e \ref{sec:testes}, serão, respetivamente, descritas pequenas funcionalidades do programa e 
 apresentados \textit{notebooks} como exemplos e seus respetivos outputs.
-Por fim, na secção \ref{sec:reflexao} será feita uma reflexão crítica sobre o desempenho da nossa solução e será discutida uma outra.
+Por fim, na secção \ref{sec:reflexao} será feita uma reflexão crítica sobre o desempenho da nossa solução.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -106,7 +106,13 @@ exemplo, a função \texttt {getDependentNumber} que, como requisito das \textit
 estrutura \texttt{my\_input\_id} o ID relativo do output necessário para a execução do comando.
 
 %% Fase de execução
-BLABLABLA
+A execução dos comandos pode ser divididas em duas fases. Numa primeira fase o pai cria tanto filhos como o número de comandos existentes no ficheiro passado como argumento. 
+Cada um destes filhos irá executar um dos comandos. Uma vez que um esquema lógico das dependências existentes entre comandos já se encontra montado, facilmente podemos
+verificar se o output de um dado comando vai ser necessário como input de outro. Caso seja preciso, é redirecionado o stdout desse processo para um pipe do qual outro
+filho, que o pai criará, irá ler e enviar aos processos que precisam desse output, assim como para um ficheiro onde ficará guardado o resultado. Se mais nenhum filho 
+necessitar do output, então o stdout do processo que executa é redirecionado diretamente para o ficheiro, não havendo necessidade de criar um filho intermediário entre
+essa escrita. No final da criação dos filhos, o pai fecha os descritores dos pipes por eles utilizados, e nesse momento todos os que comandos que não estavam a executar 
+até então começam a ser executados.
 
 %% Fase de escrita
 Após o carregamento e a execução concorrente dos comandos presentes no \textit{Notebook} passado como argumento, chega a fase de juntar os resultados 
@@ -117,6 +123,13 @@ Após este processo, com o novo \textit{Notebook} já pronto, foi apenas necess�
 \texttt{rename}. Para efeitos de limpeza, apagamos, de seguida, todos os ficheiros auxiliares até agora criados (exceto o \textit{.nb}), assim como a pasta que os 
 continha, cujo \textit{path} é o seguinte: \texttt{/tmp/notebook}.
 
+
+Como mecanismo de deteção de erro, o stderr de todos os filhos envolvidos na execução dos comandos foi redirecionado para um ficheiro (/tmp/erros.txt). 
+Um filho é criado para supervisionar esse ficheiro, sendo que bloqueia à espera que alguem escreva nele. Se tal acontecer, esse filho manda um sinal ao pai que 
+de imediato termina a execução do programa, mandando o sinal SIGKILL aos seus filhos e limpando os ficheiros usados até então. Se esse ficheiro nunca for escrito 
+então o pai manda o sinal SIGKILL ao filho que o estava a vigiar, após ter terminado a execução dos restantes filhos. Por questões de sincronização, após realização 
+de testes, reparamos que o pai poderia terminar a execução do filho enquanto este reconhecia que o ficheiro tinha sido escrito e se preparava para alertar o pai. 
+Assim sendo, o pai verifica o ficheiro mais uma vez para garantir que não ocorreu erro nenhum.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Funcionalidades}
@@ -132,7 +145,6 @@ O utilizador pode interromper o programa a qualquer momento através da combina�
 ficheiro não seja alterado.
 
 Para além disso, caso haja um erro, o programa para a sua execução e não altera o ficheiro.
-
 
 
 
@@ -248,10 +260,7 @@ A estratégia que criamos para a resolução do problema tem os seguintes proble
   e, até, o funcionamento do programa.}
   \item{Número de pipes - o número de pipes que criámos é superior àquele que utilizamos, pois contabilizamos dois para cada comando, apesar de apenas utilizarmos 
   ambos quando o output de um comando é necessário para o input de outro.}
-  \item{Possibilidade de bloqueio - asdasdasda}
 \end{itemize}
-
-O grupo também tem a noção de que a solução não é a ideal .............
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
